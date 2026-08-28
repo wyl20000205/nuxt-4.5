@@ -1,0 +1,10 @@
+{
+  "editor.inlineSuggest.enabled": true,
+  "github.copilot.enable": {
+    "*": true,
+    "vue": true,
+    "typescript": true,
+    "javascript": true
+  },
+  "github.copilot.nextEditSuggestions.enabled": true
+}

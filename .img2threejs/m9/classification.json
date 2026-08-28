@@ -1,0 +1,13 @@
+{
+  "itemFamily": "knife",
+  "subtype": "m9",
+  "confidence": 0.94,
+  "evidenceRefs": [
+    "user-file-label:m9.jpg",
+    ".img2threejs/m9/image-analysis.md#observed-form",
+    ".img2threejs/m9/reference-admission.json"
+  ],
+  "provider": "user-supplied-reference-and-visual-analysis",
+  "version": "1",
+  "timedOut": false
+}

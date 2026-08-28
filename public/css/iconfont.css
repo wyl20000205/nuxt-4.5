@@ -1,0 +1,330 @@
+@font-face {
+  font-family: "yumao"; /* Project id 5218886 */
+  src: url('//at.alicdn.com/t/c/font_5218886_xwzyzk7unmr.woff2?t=1785997861136') format('woff2'),
+       url('//at.alicdn.com/t/c/font_5218886_xwzyzk7unmr.woff?t=1785997861136') format('woff'),
+       url('//at.alicdn.com/t/c/font_5218886_xwzyzk7unmr.ttf?t=1785997861136') format('truetype');
+}
+
+.yumao {
+  font-family: "yumao" !important;
+  font-size: 16px;
+  font-style: normal;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.iconyongyan:before {
+  content: "\e602";
+}
+
+.iconduanxin:before {
+  content: "\e603";
+}
+
+.iconlupai:before {
+  content: "\ebdc";
+}
+
+.iconshezhi:before {
+  content: "\e74a";
+}
+
+.iconwenhao:before {
+  content: "\e72d";
+}
+
+.iconshizhong:before {
+  content: "\e74f";
+}
+
+.iconrili:before {
+  content: "\e601";
+}
+
+.iconlajitong:before {
+  content: "\e615";
+}
+
+.iconstar-half:before {
+  content: "\e600";
+}
+
+.iconxingxing:before {
+  content: "\e6b9";
+}
+
+.iconxiasanjiao:before {
+  content: "\e7ff";
+}
+
+.icondacha:before {
+  content: "\e9a7";
+}
+
+.iconsuoding_lock:before {
+  content: "\e7be";
+}
+
+.iconrengongzhinengdanao:before {
+  content: "\e610";
+}
+
+.iconnashuifenxi:before {
+  content: "\e612";
+}
+
+.iconuniversity-full:before {
+  content: "\e9df";
+}
+
+.iconcircle-line:before {
+  content: "\e763";
+}
+
+.iconzuo:before {
+  content: "\e635";
+}
+
+.iconyou:before {
+  content: "\e621";
+}
+
+.iconjiahao:before {
+  content: "\e63d";
+}
+
+.iconyanjing:before {
+  content: "\e6d1";
+}
+
+.icongongyingshangguanli:before {
+  content: "\e651";
+}
+
+.iconlingdaozonglan:before {
+  content: "\e657";
+}
+
+.iconqiyedinge:before {
+  content: "\e659";
+}
+
+.iconquanmianyusuan:before {
+  content: "\e65b";
+}
+
+.iconshangwuguanli:before {
+  content: "\e65d";
+}
+
+.iconshebeiguanli:before {
+  content: "\e65f";
+}
+
+.iconweibaoguanli:before {
+  content: "\e662";
+}
+
+.iconwendangziliao:before {
+  content: "\e663";
+}
+
+.iconxianchangguanli:before {
+  content: "\e665";
+}
+
+.iconzijinguanli:before {
+  content: "\e670";
+}
+
+.iconwenhao-xianxingyuankuang:before {
+  content: "\e8e9";
+}
+
+.iconzhuanshi:before {
+  content: "\e8bd";
+}
+
+.icona-3D:before {
+  content: "\e6a7";
+}
+
+.iconGift:before {
+  content: "\e6a9";
+}
+
+.iconHome:before {
+  content: "\e6aa";
+}
+
+.iconCursor:before {
+  content: "\e6ab";
+}
+
+.icona-MenuKebabHorizontalCircle:before {
+  content: "\e6ad";
+}
+
+.iconComponent:before {
+  content: "\e6a4";
+}
+
+.icona-MenuKebabHorizontalSquare:before {
+  content: "\e6a5";
+}
+
+.icona-MenuKebabVerticalSquare:before {
+  content: "\e6a6";
+}
+
+.iconBookmark:before {
+  content: "\e6a3";
+}
+
+.iconSearch:before {
+  content: "\e6a1";
+}
+
+.iconFrame:before {
+  content: "\e6a2";
+}
+
+.iconCheque:before {
+  content: "\e67e";
+}
+
+.iconBadge:before {
+  content: "\e67f";
+}
+
+.iconBox:before {
+  content: "\e680";
+}
+
+.icona-CreditCard:before {
+  content: "\e681";
+}
+
+.icona-DeliveryFree:before {
+  content: "\e682";
+}
+
+.iconDelivery:before {
+  content: "\e683";
+}
+
+.icona-DeliveryFast:before {
+  content: "\e684";
+}
+
+.icona-ShoppingBag:before {
+  content: "\e685";
+}
+
+.icona-CertificateBadge:before {
+  content: "\e686";
+}
+
+.iconInvoice:before {
+  content: "\e687";
+}
+
+.icona-ShoppingCardRemove:before {
+  content: "\e688";
+}
+
+.iconDiscount:before {
+  content: "\e689";
+}
+
+.icona-ShoppingCardAdd:before {
+  content: "\e68a";
+}
+
+.icona-ShoppingCard:before {
+  content: "\e68b";
+}
+
+.iconTicket:before {
+  content: "\e68c";
+}
+
+.iconStore:before {
+  content: "\e68d";
+}
+
+.icona-ConfusedFace:before {
+  content: "\e68e";
+}
+
+.icona-ExpressionlessFace:before {
+  content: "\e68f";
+}
+
+.icona-FileClose:before {
+  content: "\e690";
+}
+
+.icona-FileRemove:before {
+  content: "\e691";
+}
+
+.iconFile:before {
+  content: "\e692";
+}
+
+.icona-FolderVideo:before {
+  content: "\e693";
+}
+
+.iconFolder:before {
+  content: "\e694";
+}
+
+.iconClock:before {
+  content: "\e695";
+}
+
+.iconOptions:before {
+  content: "\e696";
+}
+
+.iconLocation:before {
+  content: "\e697";
+}
+
+.icona-Mode-Light:before {
+  content: "\e698";
+}
+
+.iconPrinter:before {
+  content: "\e699";
+}
+
+.iconNews:before {
+  content: "\e69a";
+}
+
+.iconApps:before {
+  content: "\e69b";
+}
+
+.icona-ShieldNo:before {
+  content: "\e69c";
+}
+
+.icona-ZoomIn:before {
+  content: "\e69d";
+}
+
+.iconNotification:before {
+  content: "\e69e";
+}
+
+.icona-TrashSimple:before {
+  content: "\e69f";
+}
+
+.icona-Number4:before {
+  content: "\e6a0";
+}
