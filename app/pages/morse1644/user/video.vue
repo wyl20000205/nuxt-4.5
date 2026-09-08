@@ -634,7 +634,7 @@
   let threeHumanRig: HumanRig | null = null;
   let threeResizeObserver: ResizeObserver | null = null;
   let go_user =()=>{
-    useRouter().push('/user')
+    useRouter().push('/morse1644/user/')
   }
 
   const posePartOptions: Array<{ value: PosePart; label: string }> = [

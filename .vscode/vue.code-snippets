@@ -1,0 +1,22 @@
+{
+  "Vue 3 单文件组件": {
+    "scope": "vue",
+    "prefix": "vue",
+    "body": [
+      "<template>",
+      "  <div class=\"$1\">",
+      "    $2",
+      "  </div>",
+      "</template>",
+      "",
+      "<script setup lang=\"ts\">",
+      "  $3",
+      "</script>",
+      "",
+      "<style lang=\"less\" scoped>",
+      "  $4",
+      "</style>"
+    ],
+    "description": "创建 Vue 3 单文件组件"
+  }
+}

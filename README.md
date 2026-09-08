@@ -25,3 +25,7 @@ tar -czf eng-link-output.tar.gz .output
 unzip .output.zip -d .output
 ln -s /home/wyl/blog /root/wyl
 改变端口 PORT=3002 pm2 start .output/server/index.mjs
+
+
+server的 /api 和 /routes 技术能力相似 区别 api 是
+server/routes 就是用于创建不带 /api 前缀的服务端路由。

@@ -17,6 +17,7 @@
         <!-- <button type="button" :disabled="!canRedo" @click="redo">重做</button> -->
         <button type="button" @click="notify('分享链接已复制')">分享</button>
         <button type="button" class="primary" @click="startExport">导出</button>
+        <button @click="go_user">返回</button>
       </div>
     </header>
 
@@ -441,7 +442,9 @@ let playbackStartedAt = 0
 let playbackStartTime = 0
 let exportCancelled = false
 let clipboardClip: Clip | null = null
-
+let go_user = ()=>{
+  useRouter().push('/user')
+}
 const assets = ref<Asset[]>([])
 const clips = ref<Clip[]>([])
 

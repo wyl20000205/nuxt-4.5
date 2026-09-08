@@ -1,4 +1,4 @@
-import tool from "#server/yumao/tool";
+import tool from "#server/backend/tool";
 
 export default defineEventHandler((event) => {
   const token = getHeader(event, "authorization");

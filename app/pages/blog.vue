@@ -1,6 +1,5 @@
 <template>
   <div id="pages_blog">
-    <p class="mb">请使用电脑访问😋</p>
     <div v-if="viewport_width" class="viewport-debug">
       {{ viewport_width }}px
     </div>
@@ -287,7 +286,7 @@
       content: "午后的阳光很适合整理照片。\n今天也记录一点小小的开心。",
       likes: 28,
       replies: 6,
-      img_list: ["img1.jpg", "img2.jpg", "img3.jpg", "img4.jpg"],
+      img_list: ["temp.png"],
     },
     {
       id: 2,
@@ -1359,7 +1358,7 @@
                   overscroll-behavior-x: contain;
                   scroll-behavior: auto;
                   scrollbar-width: none;
-                  cursor: grab;
+                  //cursor: grab;
                   touch-action: pan-y;
                   user-select: none;
                   contain: layout paint;
@@ -1558,11 +1557,10 @@
       }
     }
   }
-  @media screen and (max-width: 1000px) {
+  @media screen and (max-width: 1100px) {
     #pages_index {
       aside {
         padding: 36px 5px;
-
         .logo {
           .logo-line {
             transform: translateX(-2px) scaleX(0.68);

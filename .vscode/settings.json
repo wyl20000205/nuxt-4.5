@@ -1,5 +1,12 @@
 {
   "editor.inlineSuggest.enabled": true,
+  "editor.quickSuggestions": {
+    "strings": "on"
+  },
+  "files.associations": {
+    "*.css": "tailwindcss"
+  },
+  "tailwindCSS.experimental.configFile": ".nuxt/tailwind/postcss.mjs",
   "github.copilot.enable": {
     "*": true,
     "vue": true,

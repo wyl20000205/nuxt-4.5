@@ -1,1 +1,1 @@
-export { default } from "../yumao/worker.js";
+export { default } from "../backend/worker.js";

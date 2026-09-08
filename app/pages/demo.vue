@@ -1,5 +1,4 @@
 <template>
-  <p class="mb">使用电脑访问😋</p>
   <main
     class="pc"
     id="pages_demo"
