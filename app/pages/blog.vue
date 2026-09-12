@@ -1,8 +1,6 @@
 <template>
   <div id="pages_blog">
-    <div v-if="viewport_width" class="viewport-debug">
-      {{ viewport_width }}px
-    </div>
+    <SiteHead @select="handleAsideSelect" />
     <aside class="pc">
       <p class="logo" aria-label="HUALUO">
         <svg
@@ -18,22 +16,23 @@
         </svg>
       </p>
       <button
-        v-for="(item, index) in aside_item"
-        :key="item.name"
+        v-for="item in item_nav"
+        v-show="item.display"
+        :key="item.text"
         class="nav-item"
-        :class="{ 'is-selected': select_item === index }"
+        :class="{ 'is-selected': select_item === item.text }"
         type="button"
-        :aria-current="select_item === index ? 'page' : undefined"
-        @click="handleAsideSelect(index)"
+        :aria-current="select_item === item.text ? 'page' : undefined"
+        @click="handleAsideSelect(item.text)"
       >
         <i :class="['item-icon', 'yumao', item.icon]" aria-hidden="true"></i>
-        <span>{{ item.name }}</span>
+        <span>{{ item.text }}</span>
       </button>
     </aside>
     <main>
-      <div class="head">
+      <div class="head pc">
         <div class="l"><p>最新文章</p></div>
-        <div class="r">
+        <!-- <div class="r">
           <p class="inp" :class="{ 'is-open': search_open }">
             <button
               class="search-trigger"
@@ -50,9 +49,9 @@
               maxlength="12"
               placeholder="搜索文章"
               aria-label="搜索文章"
-              @keydown.enter="handleSearch"
               @keydown.esc="closeSearch"
               @input="removeSpaces"
+              class="text-xl"
             />
             <button
               class="close-trigger"
@@ -64,10 +63,10 @@
               <i class="yumao icon-close" aria-hidden="true"></i>
             </button>
           </p>
-        </div>
+        </div> -->
       </div>
       <div
-        ref="main_scroll"
+        ref="post_scroll"
         class="main"
         :aria-busy="home_loading || bottom_loading"
         @scroll.passive="handleMainScroll"
@@ -78,17 +77,23 @@
               class="avatar-placeholder yumao icon-a-042_wode-09"
               aria-hidden="true"
             ></i>
-            <img
+            <NuxtImg
               ref="home_avatar_image"
               :src="qq_img"
               alt="用户头像"
-              fetchpriority="high"
+              loading="lazy"
+              format="webp"
+              quality="40"
               @load="home_avatar_loaded = true"
               @error="home_avatar_loaded = false"
             />
           </p>
-          <p class="prompt">今天有什么有趣的事吗？🤔</p>
-          <p class="action"><button type="button">发帖</button></p>
+          <p class="prompt" @click="handleAsideSelect('发帖')">
+            今天有什么有趣的事吗？🤔
+          </p>
+          <p class="action">
+            <button type="button" @click="openSendArticle">发帖</button>
+          </p>
         </div>
         <div
           class="loading"
@@ -97,19 +102,13 @@
         >
           <p class="yumao icon-jiazai"></p>
         </div>
-        <div class="item_box">
+        <SkeletonBlog v-if="posts_loading" />
+        <div v-else class="item_box">
           <div
             v-for="post in post_items"
             :key="post.id"
-            :class="[post.item_id, 'item']"
-            role="button"
-            tabindex="0"
-            @mouseenter="hovered_post_id = post.id"
-            @mouseleave="hovered_post_id = null"
-            @focus="hovered_post_id = post.id"
-            @blur="hovered_post_id = null"
-            @click="handlePostClick(post)"
-            @keydown.enter="handlePostClick(post)"
+            class="item"
+            :data-post-id="post.id"
           >
             <div class="item_content">
               <p
@@ -120,13 +119,16 @@
                   class="avatar-placeholder yumao icon-a-042_wode-09"
                   aria-hidden="true"
                 ></i>
-                <img
+                <NuxtImg
+                  v-if="visible_post_ids.has(post.id)"
                   :src="post.avatar"
                   :alt="`${post.author} 的头像`"
                   :data-post-avatar-id="post.id"
                   loading="lazy"
                   @load="post_avatar_loaded[post.id] = true"
                   @error="post_avatar_loaded[post.id] = false"
+                  quality="40"
+                  format="webp"
                 />
                 <i
                   class="avatar-add yumao icon-jiahao1"
@@ -139,19 +141,23 @@
                     <em class="name">{{ post.author }}</em
                     ><em class="time">{{ formatPostTime(post.time) }}</em>
                   </p>
-                  <p
-                    class="h_r"
-                    :class="{ 'is-visible': hovered_post_id === post.id }"
-                    aria-label="更多操作"
-                  >
-                    <em class="yumao icon-gengduo"></em>
+                  <p class="h_r" aria-label="更多操作">
+                    <em
+                      class="yumao icon-gengduo"
+                      role="button"
+                      tabindex="0"
+                      aria-haspopup="menu"
+                    ></em>
+                    <span class="more-menu" role="menu">
+                      <em role="menuitem" tabindex="0">不感兴趣</em>
+                      <em role="menuitem" tabindex="0">举报</em>
+                    </span>
                   </p>
                 </div>
                 <pre class="m">{{ post.content }}</pre>
                 <picture
                   v-if="post.img_list?.length"
                   class="img_box"
-                  @click.stop
                   @pointerdown="handleGalleryPointerDown"
                   @pointermove="handleGalleryPointerMove"
                   @pointerup="handleGalleryPointerUp"
@@ -162,36 +168,25 @@
                     :key="`${post.id}-${index}`"
                     class="img"
                   >
-                    <img
-                      :src="`/images/${image}`"
+                    <NuxtImg
+                      v-if="visible_post_ids.has(post.id)"
+                      :src="getPostImageSrc(image)"
                       :alt="`${post.author} 的图片 ${index + 1}`"
+                      :provider="isRemoteImage(image) ? 'weserv' : undefined"
+                      :format="isRemoteImage(image) ? 'webp' : undefined"
+                      quality="70"
                       loading="lazy"
+                      densities="1x"
                       decoding="async"
                       draggable="false"
+                      @click="
+                        openImagePreview(
+                          image,
+                          `${post.author} 的图片 ${index + 1}`,
+                        )
+                      "
                     />
                   </span>
-                </picture>
-                <picture v-if="false" class="img_box">
-                  <p class="img img_1">
-                    <img
-                      src="https://scontent-sin6-3.cdninstagram.com/v/t51.82787-15/775591707_18427859728180291_7845693213144947568_n.jpg?stp=dst-jpg_e35_s480x480_tt6&_nc_cat=106&ig_cache_key=Mzk2NDk1MDc2MDE0OTEyNTk2OA%3D%3D.3-ccb7-5&ccb=7-5&_nc_sid=58cdad&efg=eyJ2ZW5jb2RlX3RhZyI6IkNBUk9VU0VMX0lURU0ueHBpZHMuMjQ0Ny5zZHIucmVndWxhcl9waG90by5DMyJ9&_nc_ohc=Arm5ScTeb7oQ7kNvwERFYgA&_nc_oc=Adp2YMfeY35zdxigPZhxRovmElb562b_sXXni-typ6M3HhRQRgg6GQL_wdNjnShAd8o&_nc_ad=z-m&_nc_cid=0&_nc_zt=23&_nc_ht=scontent-sin6-3.cdninstagram.com&_nc_gid=uLgrxQ8i2AEV8dNvbmsHtw&_nc_ss=7a22e&oh=00_AQHD8cV-MXkUS864cgeHFDaYxHkrO-1UZgc0vXEHGVqF4A&oe=6A888C4C"
-                    /><i class="to do"></i>
-                  </p>
-                  <p class="img img_1">
-                    <img
-                      src="https://scontent-sin6-3.cdninstagram.com/v/t51.82787-15/775591707_18427859728180291_7845693213144947568_n.jpg?stp=dst-jpg_e35_s480x480_tt6&_nc_cat=106&ig_cache_key=Mzk2NDk1MDc2MDE0OTEyNTk2OA%3D%3D.3-ccb7-5&ccb=7-5&_nc_sid=58cdad&efg=eyJ2ZW5jb2RlX3RhZyI6IkNBUk9VU0VMX0lURU0ueHBpZHMuMjQ0Ny5zZHIucmVndWxhcl9waG90by5DMyJ9&_nc_ohc=Arm5ScTeb7oQ7kNvwERFYgA&_nc_oc=Adp2YMfeY35zdxigPZhxRovmElb562b_sXXni-typ6M3HhRQRgg6GQL_wdNjnShAd8o&_nc_ad=z-m&_nc_cid=0&_nc_zt=23&_nc_ht=scontent-sin6-3.cdninstagram.com&_nc_gid=uLgrxQ8i2AEV8dNvbmsHtw&_nc_ss=7a22e&oh=00_AQHD8cV-MXkUS864cgeHFDaYxHkrO-1UZgc0vXEHGVqF4A&oe=6A888C4C"
-                    /><i class="to do"></i>
-                  </p>
-                  <p class="img img_1">
-                    <img
-                      src="https://scontent-sin6-3.cdninstagram.com/v/t51.82787-15/775591707_18427859728180291_7845693213144947568_n.jpg?stp=dst-jpg_e35_s480x480_tt6&_nc_cat=106&ig_cache_key=Mzk2NDk1MDc2MDE0OTEyNTk2OA%3D%3D.3-ccb7-5&ccb=7-5&_nc_sid=58cdad&efg=eyJ2ZW5jb2RlX3RhZyI6IkNBUk9VU0VMX0lURU0ueHBpZHMuMjQ0Ny5zZHIucmVndWxhcl9waG90by5DMyJ9&_nc_ohc=Arm5ScTeb7oQ7kNvwERFYgA&_nc_oc=Adp2YMfeY35zdxigPZhxRovmElb562b_sXXni-typ6M3HhRQRgg6GQL_wdNjnShAd8o&_nc_ad=z-m&_nc_cid=0&_nc_zt=23&_nc_ht=scontent-sin6-3.cdninstagram.com&_nc_gid=uLgrxQ8i2AEV8dNvbmsHtw&_nc_ss=7a22e&oh=00_AQHD8cV-MXkUS864cgeHFDaYxHkrO-1UZgc0vXEHGVqF4A&oe=6A888C4C"
-                    /><i class="to do"></i>
-                  </p>
-                  <p class="img img_1">
-                    <img
-                      src="https://scontent-sin6-3.cdninstagram.com/v/t51.82787-15/775591707_18427859728180291_7845693213144947568_n.jpg?stp=dst-jpg_e35_s480x480_tt6&_nc_cat=106&ig_cache_key=Mzk2NDk1MDc2MDE0OTEyNTk2OA%3D%3D.3-ccb7-5&ccb=7-5&_nc_sid=58cdad&efg=eyJ2ZW5jb2RlX3RhZyI6IkNBUk9VU0VMX0lURU0ueHBpZHMuMjQ0Ny5zZHIucmVndWxhcl9waG90by5DMyJ9&_nc_ohc=Arm5ScTeb7oQ7kNvwERFYgA&_nc_oc=Adp2YMfeY35zdxigPZhxRovmElb562b_sXXni-typ6M3HhRQRgg6GQL_wdNjnShAd8o&_nc_ad=z-m&_nc_cid=0&_nc_zt=23&_nc_ht=scontent-sin6-3.cdninstagram.com&_nc_gid=uLgrxQ8i2AEV8dNvbmsHtw&_nc_ss=7a22e&oh=00_AQHD8cV-MXkUS864cgeHFDaYxHkrO-1UZgc0vXEHGVqF4A&oe=6A888C4C"
-                    /><i class="to do"></i>
-                  </p>
                 </picture>
                 <div class="b">
                   <em
@@ -254,13 +249,240 @@
         </div>
       </div>
     </main>
+    <Transition name="image-preview">
+      <div
+        v-show="preview_open"
+        id="look_img_mask"
+        ref="preview_dialog"
+        class="mask"
+        role="dialog"
+        aria-modal="true"
+        aria-label="图片预览"
+        :aria-hidden="!preview_open"
+        tabindex="-1"
+        @keydown.esc="closeImagePreview"
+        @wheel.prevent
+      >
+        <div class="bg" @click="closeImagePreview"></div>
+        <div class="preview-main">
+          <em
+            class="preview-close yumao icon-close"
+            role="button"
+            tabindex="0"
+            aria-label="关闭图片预览"
+            title="关闭"
+            @click="closeImagePreview"
+            @keydown.enter="closeImagePreview"
+            @keydown.space.prevent="closeImagePreview"
+          ></em>
+          <p class="preview-stage">
+            <img
+              class="preview-image"
+              :class="`is-${preview_orientation}`"
+              :src="preview_src"
+              :alt="preview_alt"
+              draggable="false"
+              :style="{
+                transform: `rotate(${preview_rotation}deg) scale(${preview_scale})`,
+              }"
+              @load="handlePreviewImageLoad"
+            />
+          </p>
+          <p class="preview-tools" aria-label="图片调整工具">
+            <em
+              class="preview-control"
+              role="button"
+              tabindex="0"
+              aria-label="顺时针旋转"
+              title="顺时针旋转"
+              @click="rotatePreview(90)"
+              @keydown.enter="rotatePreview(90)"
+              @keydown.space.prevent="rotatePreview(90)"
+              >↻</em
+            >
+            <em
+              class="preview-control"
+              role="button"
+              tabindex="0"
+              aria-label="逆时针旋转"
+              title="逆时针旋转"
+              @click="rotatePreview(-90)"
+              @keydown.enter="rotatePreview(-90)"
+              @keydown.space.prevent="rotatePreview(-90)"
+              >↺</em
+            >
+            <em
+              class="preview-control"
+              :class="{ 'is-disabled': preview_scale >= 3 }"
+              role="button"
+              tabindex="0"
+              aria-label="放大图片"
+              :aria-disabled="preview_scale >= 3"
+              title="放大"
+              @click="zoomPreview(0.25)"
+              @keydown.enter="zoomPreview(0.25)"
+              @keydown.space.prevent="zoomPreview(0.25)"
+              >＋</em
+            >
+            <em
+              class="preview-control"
+              :class="{ 'is-disabled': preview_scale <= 0.5 }"
+              role="button"
+              tabindex="0"
+              aria-label="缩小图片"
+              :aria-disabled="preview_scale <= 0.5"
+              title="缩小"
+              @click="zoomPreview(-0.25)"
+              @keydown.enter="zoomPreview(-0.25)"
+              @keydown.space.prevent="zoomPreview(-0.25)"
+              >−</em
+            >
+          </p>
+        </div>
+      </div>
+    </Transition>
+    <Transition name="send_article_preview">
+      <div
+        v-if="send_article_open"
+        id="send_article_mask"
+        ref="send_article_dialog"
+        class="mask"
+        role="dialog"
+        aria-modal="true"
+        aria-label="新建帖子"
+        tabindex="-1"
+        @keydown.esc="closeSendArticle"
+      >
+        <div class="bg" @click="closeSendArticle"></div>
+        <div class="main send-article-main">
+          <header>
+            <strong>新建帖子</strong>
+            <button
+              class="send-cancel text-xl"
+              type="button"
+              @click="closeSendArticle"
+            >
+              取消
+            </button>
+          </header>
+          <div class="send-article-body">
+            <img :src="qq_img" alt="用户头像" />
+            <div class="send-editor">
+              <strong>Hualuo</strong>
+              <div
+                class="send-content"
+                contenteditable="true"
+                role="textbox"
+                aria-multiline="true"
+                data-placeholder="有什么新鲜事吗？"
+                aria-label="帖子内容"
+                @input="handleSendArticleInput"
+              ></div>
+              <div
+                v-if="send_article_images.length"
+                class="send-images"
+                @pointerdown="handleGalleryPointerDown"
+                @pointermove="handleGalleryPointerMove"
+                @pointerup="handleGalleryPointerUp"
+                @pointercancel="handleGalleryPointerUp"
+              >
+                <figure
+                  v-for="(image, index) in send_article_images"
+                  :key="image.url"
+                >
+                  <img :src="image.url" :alt="image.name" />
+                  <button
+                    type="button"
+                    :aria-label="`移除图片 ${image.name}`"
+                    @click="removeSendImage(index)"
+                  >
+                    <em class="yumao icon-close" aria-hidden="true"></em>
+                  </button>
+                </figure>
+              </div>
+            </div>
+          </div>
+          <footer>
+            <label class="send-image-trigger" title="添加图片">
+              <em
+                class="yumao icon-a-042_tupian-01 text-3xl"
+                aria-hidden="true"
+              ></em>
+              <span class="sr-only">添加图片</span>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                @change="handleSendImages"
+              />
+            </label>
+            <p v-if="send_article_error" class="form-error" role="alert">
+              {{ send_article_error }}
+            </p>
+            <button
+              type="button"
+              @click="todo"
+              :disabled="
+                send_article_pending ||
+                (!send_article_text.trim() && !send_article_images.length)
+              "
+            >
+              {{ send_article_pending ? "发布中" : "发布" }}
+            </button>
+          </footer>
+        </div>
+      </div>
+    </Transition>
+
+    <Transition name="login_preview">
+      <div
+        v-if="login_open"
+        id="login_preview"
+        role="dialog"
+        aria-modal="true"
+        aria-label="密钥登录"
+        tabindex="-1"
+        @keydown.esc="closeLogin"
+      >
+        <div class="bg" @click="closeLogin"></div>
+        <div class="main login-main">
+          <input
+            ref="login_key_input"
+            v-model="login_key"
+            type="password"
+            placeholder="请输入密钥"
+            aria-label="请输入密钥"
+            autocomplete="current-password"
+            @keyup.enter="login_todo"
+          />
+          <button
+            type="button"
+            :disabled="login_pending || !login_key"
+            @click="login_todo"
+          >
+            {{ login_pending ? "验证中" : "验证" }}
+          </button>
+          <p v-if="login_error" class="form-error" role="alert">
+            {{ login_error }}
+          </p>
+        </div>
+      </div>
+    </Transition>
+    
+    <Transition name="skeleton_preview">
+      <div>
+        <div class="bg"></div>
+        <div class="main"></div>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <script setup lang="ts">
+  import { useIndexStore } from "~/stores/index";
+
   type PostItem = {
     id: number;
-    item_id: string;
     author: string;
     avatar: string;
     time: number;
@@ -270,27 +492,33 @@
     replies: number;
   };
 
-  const qq_img = ref("https://q1.qlogo.cn/g?b=qq&nk=1799498990&s=640");
+  type StoredPost = {
+    id: number;
+    user_id: number;
+    text: string;
+    img_list: string[];
+    time: number;
+  };
+
+  type PreviewOrientation = "portrait" | "landscape" | "square";
+
+  const { item_nav } = storeToRefs(useIndexStore());
+
+  type SendArticleImage = {
+    name: string;
+    url: string;
+    file: File;
+  };
+
+  const qq_img = "https://q1.qlogo.cn/g?b=qq&nk=1799498990&s=640";
   const home_avatar_loaded = ref(false);
   const post_avatar_loaded = reactive<Record<number, boolean>>({});
-  const hovered_post_id = ref<number | null>(null);
+  const visible_post_ids = reactive(new Set<number>());
   const liked_post_ids = ref<Set<number>>(new Set());
   const like_transition_direction = reactive<Record<number, "up" | "down">>({});
   const post_items = ref<PostItem[]>([
     {
-      id: 1,
-      item_id: "item_1",
-      author: "Hualuo",
-      avatar: qq_img.value,
-      time: 1786939080000,
-      content: "午后的阳光很适合整理照片。\n今天也记录一点小小的开心。",
-      likes: 28,
-      replies: 6,
-      img_list: ["temp.png"],
-    },
-    {
       id: 2,
-      item_id: "item_3",
       author: "Mori",
       avatar: "https://q1.qlogo.cn/g?b=qq&nk=10000&s=640",
       time: 1786938480000,
@@ -300,7 +528,6 @@
     },
     {
       id: 3,
-      item_id: "item_4",
       author: "Sora",
       avatar: "https://q1.qlogo.cn/g?b=qq&nk=123456&s=640",
       time: 1786935600000,
@@ -311,7 +538,6 @@
     },
     {
       id: 4,
-      item_id: "item_5",
       author: "Nina",
       avatar: "https://q1.qlogo.cn/g?b=qq&nk=888888&s=640",
       time: 1786928400000,
@@ -321,7 +547,6 @@
     },
     {
       id: 5,
-      item_id: "item_6",
       author: "阿岚",
       avatar: "https://q1.qlogo.cn/g?b=qq&nk=5201314&s=640",
       time: 1786885200000,
@@ -331,7 +556,6 @@
     },
     {
       id: 6,
-      item_id: "item_7",
       author: "Kiki",
       avatar: "https://q1.qlogo.cn/g?b=qq&nk=246810&s=640",
       time: 1786876920000,
@@ -340,122 +564,37 @@
       likes: 18,
       replies: 3,
     },
-    {
-      id: 7,
-      item_id: "item_8",
-      author: "周周",
-      avatar: "https://q1.qlogo.cn/g?b=qq&nk=271828&s=640",
-      time: 1786868400000,
-      content:
-        "下班路上买了一束向日葵，插在客厅里以后，原本普通的傍晚也有了些仪式感。",
-      likes: 64,
-      replies: 11,
-    },
-    {
-      id: 8,
-      item_id: "item_9",
-      author: "小满",
-      avatar: "https://q1.qlogo.cn/g?b=qq&nk=314159&s=640",
-      time: 1786860360000,
-      content:
-        "午休没有刷手机。\n坐在楼下晒了十分钟太阳。\n风有一点凉。\n下午的工作居然顺了很多。",
-      likes: 87,
-      replies: 16,
-    },
-    {
-      id: 9,
-      item_id: "item_10",
-      author: "Lena",
-      avatar: "https://q1.qlogo.cn/g?b=qq&nk=161803&s=640",
-      time: 1786851300000,
-      content:
-        "最近开始用纸笔记待办，划掉一项的瞬间很有成就感。比起把计划排得很满，先完成眼前的一件小事更踏实。",
-      likes: 42,
-      replies: 7,
-    },
-    {
-      id: 10,
-      item_id: "item_11",
-      author: "阿澈",
-      avatar: "https://q1.qlogo.cn/g?b=qq&nk=112233&s=640",
-      time: 1786752900000,
-      content:
-        "早餐是热牛奶和烤面包。\n窗外刚好下起小雨。\n这样的早晨，适合把节奏放慢一点。",
-      likes: 31,
-      replies: 5,
-    },
-    {
-      id: 11,
-      item_id: "item_12",
-      author: "Yoyo",
-      avatar: "https://q1.qlogo.cn/g?b=qq&nk=445566&s=640",
-      time: 1786792200000,
-      content:
-        "把很久没联系的朋友约出来吃了顿饭，聊天时才发现大家都在各自努力生活。见面本身就很治愈。",
-      likes: 93,
-      replies: 20,
-    },
-    {
-      id: 12,
-      item_id: "item_13",
-      author: "南风",
-      avatar: "https://q1.qlogo.cn/g?b=qq&nk=778899&s=640",
-      time: 1786789500000,
-      content:
-        "傍晚去江边散步。\n云层被夕阳染成很浅的橘色。\n耳机里正好放到喜欢的歌。\n今天到这里就很好。",
-      likes: 126,
-      replies: 28,
-    },
-    {
-      id: 13,
-      item_id: "item_14",
-      author: "Mia",
-      avatar: "https://q1.qlogo.cn/g?b=qq&nk=998877&s=640",
-      time: 1786624200000,
-      content:
-        "试着做了新配方的冰美式，苦味比预想中淡一些。天气热的时候，冰块碰杯的声音也很让人安心。",
-      likes: 39,
-      replies: 8,
-    },
-    {
-      id: 14,
-      item_id: "item_15",
-      author: "木木",
-      avatar: "https://q1.qlogo.cn/g?b=qq&nk=135790&s=640",
-      time: 1786687200000,
-      content:
-        "给阳台上的薄荷换了盆。\n浇水的时候闻到一点清凉的香气。\n希望它能快点长得茂盛。",
-      likes: 22,
-      replies: 2,
-    },
-    {
-      id: 15,
-      item_id: "item_16",
-      author: "晴子",
-      avatar: "https://q1.qlogo.cn/g?b=qq&nk=975310&s=640",
-      time: 1786629600000,
-      content:
-        "最近读书读得慢了一些。\n每晚只看几页。\n却能把喜欢的句子记得更久。\n慢下来也没有关系。",
-      likes: 76,
-      replies: 14,
-    },
   ]);
-  const viewport_width = ref(0);
-  const select_item = ref(0);
+  const select_item = ref("首页");
+  const posts_loading = ref(true);
   const home_loading = ref(false);
   const bottom_loading = ref(false);
   const search_open = ref(false);
   const search_input = ref<HTMLInputElement | null>(null);
-  const main_scroll = ref<HTMLElement | null>(null);
   const home_avatar_image = ref<HTMLImageElement | null>(null);
+  const post_scroll = ref<HTMLElement | null>(null);
+  const send_article_dialog = ref<HTMLElement | null>(null);
+  const send_article_open = ref(false);
+  const send_article_text = ref("");
+  const send_article_images = ref<SendArticleImage[]>([]);
+  const send_article_pending = ref(false);
+  const send_article_error = ref("");
+  const login_open = ref(false);
+  const login_key = ref("");
+  const login_key_input = ref<HTMLInputElement | null>(null);
+  const login_pending = ref(false);
+  const login_error = ref("");
+  const preview_dialog = ref<HTMLElement | null>(null);
+  const preview_open = ref(false);
+  const preview_src = ref("");
+  const preview_alt = ref("");
+  const preview_rotation = ref(0);
+  const preview_scale = ref(1);
+  const preview_orientation = ref<PreviewOrientation>("square");
   let homeLoadingTimer: number | undefined;
   let bottomLoadingTimer: number | undefined;
   let bottomReached = false;
-
-  const removeSpaces = (event: Event) => {
-    const input = event.currentTarget as HTMLInputElement;
-    input.value = input.value.replace(/\s+/g, "");
-  };
+  let postImageObserver: IntersectionObserver | undefined;
 
   const formatPostTime = (value: number) => {
     const timestamp = value < 1_000_000_000_000 ? value * 1000 : value;
@@ -487,9 +626,9 @@
     return `${date.getMonth() + 1}月${date.getDate()}日`;
   };
 
-  const handlePostClick = (_post: PostItem) => {
-    // 预留帖子详情跳转或弹窗逻辑。
-  };
+  const isRemoteImage = (image: string) => /^https?:\/\//i.test(image);
+  const getPostImageSrc = (image: string) =>
+    isRemoteImage(image) ? image : `/images/${image}`;
 
   const isPostLiked = (postId: number) => liked_post_ids.value.has(postId);
 
@@ -515,9 +654,176 @@
   let gallery_start_scroll_left = 0;
   let gallery_last_x = 0;
   let gallery_animation_frame: number | undefined;
+  let gallery_was_dragged = false;
+
+  const openImagePreview = async (image: string, alt: string) => {
+    if (gallery_was_dragged) {
+      gallery_was_dragged = false;
+      return;
+    }
+
+    preview_src.value = getPostImageSrc(image);
+    preview_alt.value = alt;
+    preview_rotation.value = 0;
+    preview_scale.value = 1;
+    preview_orientation.value = "square";
+    preview_open.value = true;
+    await nextTick();
+    preview_dialog.value?.focus();
+  };
+
+  const closeImagePreview = () => {
+    preview_open.value = false;
+  };
+
+  const clearSendImages = () => {
+    send_article_images.value.forEach(({ url }) => URL.revokeObjectURL(url));
+    send_article_images.value = [];
+  };
+
+  const openSendArticle = async () => {
+    send_article_open.value = true;
+    await nextTick();
+    send_article_dialog.value
+      ?.querySelector<HTMLElement>(".send-content")
+      ?.focus();
+  };
+
+  const closeSendArticle = () => {
+    const editor =
+      send_article_dialog.value?.querySelector<HTMLElement>(".send-content");
+    if (editor) editor.textContent = "";
+    send_article_open.value = false;
+    send_article_text.value = "";
+    send_article_error.value = "";
+    clearSendImages();
+  };
+
+  const openLogin = async () => {
+    login_open.value = true;
+    await nextTick();
+    login_key_input.value?.focus();
+  };
+
+  const closeLogin = () => {
+    login_open.value = false;
+    login_key.value = "";
+    login_error.value = "";
+  };
+
+  const login_todo = async () => {
+    if (!login_key.value || login_pending.value) return;
+
+    login_pending.value = true;
+    login_error.value = "";
+    try {
+      await $fetch("/api/blog/login", {
+        method: "POST",
+        body: { password: login_key.value },
+      });
+      closeLogin();
+    } catch {
+      login_error.value = "密钥错误";
+    } finally {
+      login_pending.value = false;
+    }
+  };
+
+  const handleSendImages = (event: Event) => {
+    const input = event.currentTarget as HTMLInputElement;
+    const images = Array.from(input.files ?? [])
+      .filter(({ type }) => type.startsWith("image/"))
+      .map((file) => ({
+        name: file.name,
+        url: URL.createObjectURL(file),
+        file,
+      }));
+    send_article_images.value.push(...images);
+    input.value = "";
+  };
+
+  const handleSendArticleInput = (event: Event) => {
+    send_article_text.value = (event.currentTarget as HTMLElement).innerText;
+  };
+
+  const removeSendImage = (index: number) => {
+    const [image] = send_article_images.value.splice(index, 1);
+    if (image) URL.revokeObjectURL(image.url);
+  };
+
+  const todo = async () => {
+    if (
+      send_article_pending.value ||
+      (!send_article_text.value.trim() && !send_article_images.value.length)
+    ) {
+      return;
+    }
+
+    const body = new FormData();
+    body.append("text", send_article_text.value);
+    send_article_images.value.forEach(({ file }) =>
+      body.append("images", file),
+    );
+
+    send_article_pending.value = true;
+    send_article_error.value = "";
+    try {
+      const { post } = await $fetch<{
+        post: {
+          id: number;
+          text: string;
+          img_list: string[];
+          time: number;
+        };
+      }>("/api/blog/post", { method: "POST", body });
+      const postId = -post.id;
+      post_items.value.unshift({
+        id: postId,
+        author: "Hualuo",
+        avatar: qq_img,
+        time: post.time,
+        content: post.text,
+        img_list: post.img_list,
+        likes: 0,
+        replies: 0,
+      });
+      visible_post_ids.add(postId);
+      closeSendArticle();
+      post_scroll.value?.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (error) {
+      const statusCode = (error as { statusCode?: number }).statusCode;
+      send_article_error.value =
+        statusCode === 401 ? "请先登录" : "发布失败，请稍后重试";
+    } finally {
+      send_article_pending.value = false;
+    }
+  };
+
+  const handlePreviewImageLoad = (event: Event) => {
+    const image = event.currentTarget as HTMLImageElement;
+
+    if (image.naturalHeight > image.naturalWidth) {
+      preview_orientation.value = "portrait";
+      return;
+    }
+
+    preview_orientation.value =
+      image.naturalWidth > image.naturalHeight ? "landscape" : "square";
+  };
+
+  const rotatePreview = (degrees: number) => {
+    preview_rotation.value += degrees;
+  };
+
+  const zoomPreview = (amount: number) => {
+    preview_scale.value = Math.min(
+      3,
+      Math.max(0.5, Number((preview_scale.value + amount).toFixed(2))),
+    );
+  };
 
   const handleGalleryPointerDown = (event: PointerEvent) => {
-    if (event.pointerType === "mouse" && event.button !== 0) return;
+    if (event.pointerType !== "mouse" || event.button !== 0) return;
 
     const gallery = event.currentTarget as HTMLElement;
     active_gallery = gallery;
@@ -525,7 +831,7 @@
     gallery_start_x = event.clientX;
     gallery_start_scroll_left = gallery.scrollLeft;
     gallery_last_x = event.clientX;
-    gallery.setPointerCapture(event.pointerId);
+    gallery_was_dragged = false;
   };
 
   const handleGalleryPointerMove = (event: PointerEvent) => {
@@ -537,7 +843,15 @@
     }
 
     const distance = event.clientX - gallery_start_x;
-    if (Math.abs(distance) > 3) event.preventDefault();
+    if (Math.abs(distance) > 3) {
+      if (active_gallery.classList.contains("img_box")) {
+        gallery_was_dragged = true;
+      }
+      if (!active_gallery.hasPointerCapture(event.pointerId)) {
+        active_gallery.setPointerCapture(event.pointerId);
+      }
+      event.preventDefault();
+    }
     gallery_last_x = event.clientX;
 
     if (gallery_animation_frame !== undefined) return;
@@ -571,58 +885,72 @@
     active_gallery_pointer_id = null;
   };
 
-  const syncAvatarLoadState = () => {
+  const syncHomeAvatarLoadState = () => {
     const homeImage = home_avatar_image.value;
     if (homeImage?.complete && homeImage.naturalWidth > 0) {
       home_avatar_loaded.value = true;
     }
+  };
 
-    document
-      .querySelectorAll<HTMLImageElement>("img[data-post-avatar-id]")
-      .forEach((image) => {
-        const postId = Number(image.dataset.postAvatarId);
-        if (
-          image.complete &&
-          image.naturalWidth > 0 &&
-          Number.isFinite(postId)
-        ) {
-          post_avatar_loaded[postId] = true;
-        }
+  onMounted(async () => {
+    try {
+      const { posts } = await $fetch<{ posts: StoredPost[] }>("/api/blog/post");
+      post_items.value.unshift(
+        ...posts.map((post) => ({
+          id: -post.id,
+          author: "Hualuo",
+          avatar: qq_img,
+          time: post.time,
+          content: post.text,
+          img_list: post.img_list,
+          likes: 0,
+          replies: 0,
+        })),
+      );
+      posts_loading.value = false;
+    } catch (error) {
+      console.error("加载帖子失败", error);
+      showError({
+        statusCode: 503,
+        statusMessage: "文章暂时无法加载",
+        message:
+          import.meta.dev && error instanceof Error
+            ? error.message
+            : "服务器未能返回文章数据，请稍后重试。",
       });
-  };
+      return;
+    }
 
-  const updateViewportWidth = () => {
-    viewport_width.value = window.innerWidth;
-  };
+    await nextTick();
+    syncHomeAvatarLoadState();
+    const root = post_scroll.value;
+    if (!root) return;
 
-  onMounted(() => {
-    updateViewportWidth();
-    nextTick(syncAvatarLoadState);
-    window.addEventListener("resize", updateViewportWidth);
+    postImageObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          const postId = Number((entry.target as HTMLElement).dataset.postId);
+          if (Number.isFinite(postId)) visible_post_ids.add(postId);
+          postImageObserver?.unobserve(entry.target);
+        });
+      },
+      { root, threshold: 0.01 },
+    );
+    root
+      .querySelectorAll<HTMLElement>("[data-post-id]")
+      .forEach((item) => postImageObserver?.observe(item));
   });
 
   onBeforeUnmount(() => {
-    window.removeEventListener("resize", updateViewportWidth);
+    postImageObserver?.disconnect();
+    clearSendImages();
     if (homeLoadingTimer !== undefined) window.clearTimeout(homeLoadingTimer);
     if (bottomLoadingTimer !== undefined)
       window.clearTimeout(bottomLoadingTimer);
     if (gallery_animation_frame !== undefined)
       window.cancelAnimationFrame(gallery_animation_frame);
   });
-
-  const handleSearch = async () => {
-    if (!search_open.value) {
-      search_open.value = true;
-      await nextTick();
-      search_input.value?.focus();
-      return;
-    }
-  };
-
-  const closeSearch = () => {
-    search_open.value = false;
-    search_input.value?.blur();
-  };
 
   const stopHomeLoading = () => {
     if (homeLoadingTimer !== undefined) window.clearTimeout(homeLoadingTimer);
@@ -639,9 +967,18 @@
     }, 2000);
   };
 
-  const handleAsideSelect = (index: number) => {
-    select_item.value = index;
-    if (index === 0) {
+  const handleAsideSelect = (text: string) => {
+    if (text === "发帖") {
+      openSendArticle();
+      return;
+    }
+    if (text === "登录") {
+      openLogin();
+      return;
+    }
+
+    select_item.value = text;
+    if (text === "首页") {
       startHomeLoading();
       return;
     }
@@ -673,29 +1010,6 @@
     if (!reachedBottom) bottomReached = false;
   };
 
-  const aside_item = ref([
-    {
-      icon: "icon-a-042_fujin",
-      name: "首页",
-    },
-    {
-      icon: "icon-a-042_faxian",
-      name: "发帖",
-    },
-    {
-      icon: "icon-a-042_sousuo",
-      name: "搜索",
-    },
-    {
-      icon: "icon-a-042_wode-09",
-      name: "登录",
-    },
-    {
-      icon: "icon-a-042_tianjia",
-      name: "其他",
-    },
-  ]);
-
   useHead({
     title: "华落博客-门户首页",
     link: [
@@ -721,26 +1035,6 @@
     position: relative;
     min-height: 100vh;
     color: #fff;
-
-    .viewport-debug {
-      position: absolute;
-      top: 12px;
-      right: 16px;
-      z-index: 100;
-      padding: 5px 9px;
-      border: 1px solid rgba(255, 255, 255, 0.16);
-      border-radius: 999px;
-      color: rgba(255, 255, 255, 0.72);
-      background: rgba(20, 20, 20, 0.82);
-      font:
-        600 12px/1.2 ui-monospace,
-        SFMono-Regular,
-        Consolas,
-        monospace;
-      letter-spacing: 0.04em;
-      pointer-events: none;
-      user-select: none;
-    }
 
     aside {
       position: fixed;
@@ -893,17 +1187,16 @@
           content: "";
           transform: translateY(-50%);
         }
-
-        .item-icon {
-          color: #111;
-        }
       }
     }
     main {
       position: fixed;
+      display: flex;
+      flex-direction: column;
       top: 0;
       left: 50%;
       width: 680px;
+      height: 100vh;
       height: 100dvh;
       margin: 0;
       color: black;
@@ -911,6 +1204,7 @@
       transform: translateX(-50%);
 
       .head {
+        flex: 0 0 auto;
         width: 95%;
         display: flex;
         align-items: center;
@@ -921,7 +1215,6 @@
         > div {
           display: flex;
           align-items: center;
-          // border: 1px solid red;
         }
         .l {
           height: 100%;
@@ -961,7 +1254,6 @@
               height: 34px;
               padding: 0;
               color: #171717;
-              font-size: 15px;
               line-height: 34px;
               opacity: 0;
               pointer-events: none;
@@ -1058,17 +1350,18 @@
         }
       }
       .main {
+        flex: 1;
         box-sizing: border-box;
         width: 100%;
-        height: calc(100dvh - 95px);
+        height: auto;
         min-height: 0;
         padding-bottom: 24px;
         overflow-x: hidden;
         overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
         overscroll-behavior: contain;
         -ms-overflow-style: none;
         scrollbar-width: none;
-        border: 1px solid #dedee2;
         border-radius: 23px 23px 16px 16px;
         border: 1px solid rgb(218, 210, 210);
 
@@ -1097,7 +1390,6 @@
             border-radius: 20px;
             background: #f0f0f0;
             box-shadow: inset 0 0 0 3px #fff;
-            cursor: pointer;
 
             .avatar-placeholder {
               color: #8d8d93;
@@ -1147,14 +1439,12 @@
               background: #fff;
               font-size: 18px;
               font-weight: 700;
-              cursor: pointer;
               transition: all 0.3s;
 
               &:hover {
                 color: #fff;
                 border-color: #1c1c1e;
                 background: #48484c;
-                // box-shadow: 0 7px 18px rgba(0, 0, 0, 0.14);
                 transform: translateY(-1px);
               }
 
@@ -1210,29 +1500,19 @@
         .item_box {
           width: 100%;
           margin-top: 15px;
-          > div.item_2 {
-            display: none;
-          }
           > div.item {
             width: 100%;
             margin: 0 auto;
             border-bottom: 1px solid rgb(195, 190, 190);
-            cursor: pointer;
 
-            &:hover,
-            &:focus-visible {
-              .h_r {
-                visibility: visible;
-                opacity: 1;
-                transform: translateX(0);
-                pointer-events: auto;
-              }
+            &:hover > div.item_content .r .h .h_r,
+            &:focus-within > div.item_content .r .h .h_r {
+              visibility: visible;
+              opacity: 1;
+              pointer-events: auto;
+              transform: translateX(0);
             }
 
-            &:focus-visible {
-              outline: 2px solid rgba(0, 0, 0, 0.35);
-              outline-offset: -2px;
-            }
             > div.item_content {
               width: 93%;
               margin: 0 auto;
@@ -1261,7 +1541,6 @@
                   height: 100%;
                   border-radius: 50%;
                   object-fit: cover;
-                  cursor: pointer;
                   opacity: 0;
                   transition: opacity 0.2s ease;
                 }
@@ -1305,18 +1584,20 @@
                       font-weight: 600;
                       margin-right: 14px;
                       font-size: 17px;
-                      cursor: pointer;
                       &:hover {
                         text-decoration: underline;
                       }
                     }
                     .time {
-                      cursor: pointer;
                       color: gray;
                       font-size: 15px;
                     }
                   }
                   .h_r {
+                    position: relative;
+                    flex: 0 0 32px;
+                    margin: 0;
+                    text-align: center;
                     visibility: hidden;
                     opacity: 0;
                     pointer-events: none;
@@ -1324,21 +1605,69 @@
                     transition:
                       opacity 0.2s ease,
                       transform 0.2s ease;
-
-                    &.is-visible {
-                      visibility: visible;
-                      opacity: 1;
-                      pointer-events: auto;
-                      transform: translateX(0);
-                    }
-
                     .icon-gengduo {
-                      transition: all 0.3s;
-                      color: gray;
+                      color: #777;
+                      font-size: 22px;
+                      line-height: 24px;
+                      cursor: pointer;
+
+                      &::before {
+                        content: "\2026";
+                        font-family: Arial, sans-serif;
+                      }
+
+                      &:hover,
+                      &:focus-visible {
+                        color: #111;
+                        outline: none;
+                      }
                     }
                     em {
                       margin-left: 10px;
-                      cursor: pointer;
+                    }
+
+                    .more-menu {
+                      position: absolute;
+                      z-index: 3;
+                      top: 100%;
+                      right: 0;
+                      width: max-content;
+                      padding: 6px 0;
+                      border: 1px solid #e5e5e5;
+                      border-radius: 8px;
+                      color: #333;
+                      background: #fff;
+                      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+                      visibility: hidden;
+                      opacity: 0;
+                      pointer-events: none;
+                      transform: translateY(-4px);
+                      transition:
+                        opacity 0.18s ease,
+                        transform 0.18s ease;
+
+                      em {
+                        display: block;
+                        margin: 0;
+                        padding: 7px 14px;
+                        cursor: pointer;
+
+                        &:hover,
+                        &:focus-visible {
+                          background: #f5f5f5;
+                          outline: none;
+                        }
+                      }
+                    }
+
+                    &:hover,
+                    &:focus-within {
+                      .more-menu {
+                        visibility: visible;
+                        opacity: 1;
+                        pointer-events: auto;
+                        transform: translateY(0);
+                      }
                     }
                   }
                 }
@@ -1358,8 +1687,6 @@
                   overscroll-behavior-x: contain;
                   scroll-behavior: auto;
                   scrollbar-width: none;
-                  //cursor: grab;
-                  touch-action: pan-y;
                   user-select: none;
                   contain: layout paint;
 
@@ -1372,18 +1699,17 @@
                   .img {
                     display: block;
                     flex: 0 0 auto;
-                    min-height: 210px;
-                    height: clamp(220px, 25vw, 220px);
+                    height: 220px;
                     overflow: hidden;
                     border: 1px solid #d7d7db;
                     border-radius: 12px;
-                    pointer-events: none;
 
                     img {
                       display: block;
                       width: auto;
                       height: 100%;
                       max-width: none;
+                      cursor: zoom-in;
                     }
                   }
                 }
@@ -1538,17 +1864,520 @@
       }
     }
   }
+
+  #send_article_mask {
+    position: fixed;
+    z-index: 1100;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    color: #171717;
+
+    .bg {
+      position: absolute;
+      inset: 0;
+      background: rgba(8, 8, 10, 0.68);
+      backdrop-filter: blur(2px);
+    }
+
+    .send-article-main {
+      position: relative;
+      z-index: 1;
+      box-sizing: border-box;
+      width: min(92vw, 620px);
+      max-height: 90dvh;
+      overflow-y: auto;
+      border: 1px solid #dedee2;
+      border-radius: 18px;
+      background: #fff;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.3);
+
+      header {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 58px;
+        padding: 0 18px;
+        border-bottom: 1px solid #e5e5e8;
+
+        strong {
+          font-size: 17px;
+        }
+
+        button {
+          width: max-content;
+          padding: 8px 0;
+          border: 0;
+          color: inherit;
+          background: transparent;
+          cursor: pointer;
+        }
+
+        .send-cancel {
+          position: absolute;
+          right: 18px;
+
+          &:hover,
+          &:focus-visible {
+            outline: none;
+          }
+        }
+      }
+    }
+
+    .send-article-body {
+      display: flex;
+      gap: 14px;
+      // min-height: 220px;
+      padding: 22px 24px 12px;
+
+      > img {
+        flex: 0 0 42px;
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        object-fit: cover;
+      }
+    }
+
+    .send-editor {
+      flex: 1;
+      min-width: 0;
+
+      > strong {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 16px;
+      }
+
+      .send-content {
+        display: block;
+        box-sizing: border-box;
+        width: 100%;
+        min-height: 24px;
+        padding: 0;
+        border: 0;
+        outline: 0;
+        color: #171717;
+        background: transparent;
+        font: inherit;
+        font-size: 17px;
+        line-height: 24px;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+
+        &:empty::before {
+          content: attr(data-placeholder);
+          color: #9a9aa0;
+          pointer-events: none;
+        }
+      }
+    }
+
+    .send-images {
+      display: flex;
+      gap: 10px;
+      margin: 10px 0 12px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      user-select: none;
+      cursor: grab;
+      border-radius: 10px;
+
+      &::-webkit-scrollbar {
+        display: none;
+      }
+
+      &:active {
+        cursor: grabbing;
+      }
+
+      figure {
+        position: relative;
+        flex: 0 0 auto;
+        width: fit-content;
+        max-width: 100%;
+        margin: 0;
+
+        img {
+          display: block;
+          width: auto;
+          max-width: 100%;
+          height: auto;
+          max-height: 294px;
+          border-radius: 12px;
+          pointer-events: none;
+        }
+
+        button {
+          position: absolute;
+          top: 10px;
+          right: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 30px;
+          height: 30px;
+          padding: 0;
+          border: 0;
+          border-radius: 50%;
+          color: #fff;
+          background: rgba(0, 0, 0, 0.72);
+          font-size: 16px;
+          line-height: 1;
+          cursor: pointer;
+        }
+      }
+    }
+
+    .send-image-trigger {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      color: #68686d;
+      font-size: 23px;
+      cursor: pointer;
+
+      &:hover,
+      &:focus-within {
+        color: #171717;
+        background: #f1f1f3;
+      }
+
+      input {
+        display: none;
+      }
+    }
+
+    footer {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 24px 20px;
+
+      button {
+        min-width: 76px;
+        height: 40px;
+        border: 1px solid #d7d7db;
+        border-radius: 10px;
+        color: #fff;
+        background: #171717;
+        font-size: 16px;
+        font-weight: 700;
+        cursor: pointer;
+
+        &:disabled {
+          color: #aaaab0;
+          background: #f5f5f6;
+          cursor: not-allowed;
+        }
+      }
+
+      .form-error {
+        flex: 1;
+        margin: 0 12px;
+        color: #c92a2a;
+        font-size: 14px;
+        text-align: right;
+      }
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+  }
+
+  .send_article_preview-enter-active,
+  .send_article_preview-leave-active {
+    transition: opacity 0.22s ease;
+
+    .send-article-main {
+      transition: transform 0.22s ease;
+    }
+  }
+
+  .send_article_preview-enter-from,
+  .send_article_preview-leave-to {
+    opacity: 0;
+
+    .send-article-main {
+      transform: translateY(14px) scale(0.98);
+    }
+  }
+
+  #login_preview {
+    position: fixed;
+    z-index: 1100;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+
+    .bg {
+      position: absolute;
+      inset: 0;
+      background: rgba(8, 8, 10, 0.68);
+      backdrop-filter: blur(2px);
+    }
+
+    .login-main {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      gap: 14px;
+      box-sizing: border-box;
+      width: min(88vw, 360px);
+      padding: 24px;
+      border: 1px solid #dedee2;
+      border-radius: 16px;
+      background: #fff;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.3);
+
+      input {
+        box-sizing: border-box;
+        width: 100%;
+        height: 46px;
+        padding: 0 14px;
+        border: 1px solid #d7d7db;
+        border-radius: 10px;
+        outline: 0;
+        color: #171717;
+        background: #fff;
+        caret-color: #171717;
+        -webkit-text-fill-color: #171717;
+        font-size: 16px;
+
+        &::placeholder {
+          color: #8b8b91;
+          -webkit-text-fill-color: #8b8b91;
+          opacity: 1;
+        }
+
+        &:focus {
+          border-color: #171717;
+          box-shadow: 0 0 0 2px rgba(23, 23, 23, 0.1);
+        }
+      }
+
+      button {
+        height: 44px;
+        border: 0;
+        border-radius: 10px;
+        color: #fff;
+        background: #171717;
+        font-size: 16px;
+        font-weight: 700;
+        cursor: pointer;
+
+        &:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
+        }
+      }
+
+      .form-error {
+        margin: 0;
+        color: #c92a2a;
+        font-size: 14px;
+        text-align: center;
+      }
+    }
+  }
+
+  .login_preview-enter-active,
+  .login_preview-leave-active {
+    transition: opacity 0.22s ease;
+
+    .login-main {
+      transition: transform 0.22s ease;
+    }
+  }
+
+  .login_preview-enter-from,
+  .login_preview-leave-to {
+    opacity: 0;
+
+    .login-main {
+      transform: translateY(14px) scale(0.98);
+    }
+  }
+
+  #look_img_mask {
+    position: fixed;
+    z-index: 1000;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    outline: none;
+    touch-action: none;
+
+    .bg {
+      position: absolute;
+      inset: 0;
+      background: rgba(8, 8, 10, 0.58);
+      cursor: zoom-out;
+    }
+
+    .preview-main {
+      --preview-height: min(94dvh, 1200px);
+      --preview-stage-height: calc(var(--preview-height) - 120px);
+
+      position: relative;
+      z-index: 1;
+      display: grid;
+      width: min(92vw, 1120px);
+      height: var(--preview-height);
+      box-sizing: border-box;
+      grid-template-rows: minmax(0, 1fr) auto;
+      gap: 20px;
+      padding-top: 54px;
+      pointer-events: none;
+    }
+
+    .preview-close {
+      position: absolute;
+      z-index: 2;
+      top: 0;
+      right: 0;
+      display: grid;
+      width: 44px;
+      height: 44px;
+      place-items: center;
+      border-radius: 50%;
+      color: #fff;
+      background: rgba(255, 255, 255, 0.12);
+      font-size: 26px;
+      font-style: normal;
+      cursor: pointer;
+      pointer-events: auto;
+      transition:
+        background-color 0.22s ease,
+        transform 0.22s ease;
+
+      &:hover,
+      &:focus-visible {
+        background: rgba(255, 255, 255, 0.24);
+        outline: none;
+        transform: rotate(90deg);
+      }
+    }
+
+    .preview-stage {
+      display: grid;
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+      place-items: center;
+      margin: 0;
+      overflow: hidden;
+    }
+
+    .preview-image {
+      display: block;
+      width: auto;
+      height: auto;
+      max-width: 100%;
+      max-height: var(--preview-stage-height);
+      object-fit: contain;
+      user-select: none;
+      will-change: transform;
+      pointer-events: auto;
+      transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+
+      &.is-portrait {
+        width: auto;
+        height: var(--preview-stage-height);
+        max-height: var(--preview-stage-height);
+      }
+
+      &.is-landscape {
+        width: auto;
+        height: auto;
+      }
+    }
+
+    .preview-tools {
+      display: flex;
+      flex: 0 0 auto;
+      justify-content: center;
+      gap: 12px;
+      margin: 0;
+      pointer-events: auto;
+    }
+
+    .preview-control {
+      display: grid;
+      width: 46px;
+      height: 46px;
+      place-items: center;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 50%;
+      color: #fff;
+      background: rgba(255, 255, 255, 0.1);
+      font-family: Arial, sans-serif;
+      font-size: 25px;
+      font-style: normal;
+      line-height: 1;
+      cursor: pointer;
+      user-select: none;
+      transition:
+        border-color 0.22s ease,
+        background-color 0.22s ease,
+        opacity 0.22s ease,
+        transform 0.22s ease;
+
+      &:hover,
+      &:focus-visible {
+        border-color: rgba(255, 255, 255, 0.36);
+        background: rgba(255, 255, 255, 0.22);
+        outline: none;
+        transform: translateY(-2px);
+      }
+
+      &:active {
+        transform: scale(0.92);
+      }
+
+      &.is-disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+      }
+    }
+  }
+
+  .image-preview-enter-active,
+  .image-preview-leave-active {
+    transition: opacity 0.25s ease;
+  }
+
+  .image-preview-enter-from,
+  .image-preview-leave-to {
+    opacity: 0;
+  }
+
   @media screen and (max-width: 1280px) {
-    #pages_index {
+    #pages_blog {
       aside {
         padding: 36px 10px;
         .logo {
           .logo-text {
             letter-spacing: 1px;
             font-size: 18px;
-          }
-          .logo-line {
-            stroke-width: 1.2;
           }
         }
         .nav-item {
@@ -1558,7 +2387,7 @@
     }
   }
   @media screen and (max-width: 1100px) {
-    #pages_index {
+    #pages_blog {
       aside {
         padding: 36px 5px;
         .logo {
@@ -1575,7 +2404,55 @@
       }
     }
   }
+  @media screen and (max-width: 768px) {
+    #pages_blog {
+      main {
+        width: 90%;
+        height: calc(100vh - 90px);
+        height: calc(100dvh - 90px);
+        margin-top: 90px;
+        .head {
+          .l {
+            display: none;
+          }
+        }
+        .main {
+          padding-bottom: calc(40px + env(safe-area-inset-bottom));
+          border-radius: 8px;
+          border: 1px solid rgb(238, 231, 231);
+          .send_head {
+            display: none;
+          }
+          .item_box > div.item > div.item_content {
+            margin-bottom: 0;
+          }
+        }
+      }
+      aside {
+        display: none;
+      }
+    }
 
+    #look_img_mask {
+      .preview-main {
+        --preview-height: 92dvh;
+        --preview-stage-height: calc(var(--preview-height) - 110px);
+
+        width: 94vw;
+        padding-top: 48px;
+      }
+
+      .preview-close {
+        width: 40px;
+        height: 40px;
+      }
+
+      .preview-control {
+        width: 42px;
+        height: 42px;
+      }
+    }
+  }
   @keyframes home-loading-spin {
     to {
       transform: rotate(360deg);
@@ -1602,7 +2479,7 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    #pages_index aside .logo {
+    #pages_blog aside .logo {
       .logo-text {
         fill: #111;
         stroke-dashoffset: 0;
@@ -1615,9 +2492,17 @@
       }
     }
 
-    #pages_index main .main .loading p,
-    #pages_index main .main .item_bottom p {
+    #pages_blog main .main .loading p,
+    #pages_blog main .main .item_bottom p {
       animation: none;
+    }
+
+    #look_img_mask .preview-image,
+    #look_img_mask .preview-close,
+    #look_img_mask .preview-control,
+    .image-preview-enter-active,
+    .image-preview-leave-active {
+      transition: none;
     }
   }
 </style>

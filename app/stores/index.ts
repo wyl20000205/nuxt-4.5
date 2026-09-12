@@ -38,6 +38,13 @@ export const useIndexStore = defineStore("storeIndex", {
         user_notice: { content: "" },
         business_notice: { content: "" },
       },
+      item_nav: [
+        { icon: "icon-a-042_fujin", text: "首页", display: 1 },
+        { icon: "icon-a-042_faxian", text: "发帖", display: 1 },
+        { icon: "icon-a-042_wode-09", text: "登录", display: 1 },
+        { icon: "icon-a-042_sousuo", text: "搜索", display: 0 },
+        { icon: "icon-a-042_tianjia", text: "笔记", display: 1 },
+      ],
     };
   },
   actions: {

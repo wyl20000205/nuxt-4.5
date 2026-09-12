@@ -2,8 +2,17 @@
   <div>
     <NuxtRouteAnnouncer />
     <!-- <NuxtWelcome /> -->
-    <p v-if="route.path !== '/jiuyin'" class="mb">请使用电脑访问😋</p>
-    <NuxtPage :class="{ pc: route.path !== '/jiuyin' }" />
+    <p
+      v-if="route.path !== '/jiuyin' && route.path !== '/blog'"
+      class="mb"
+    >
+      请使用电脑访问😋
+    </p>
+    <NuxtPage
+      :class="{
+        pc: route.path !== '/jiuyin' && route.path !== '/blog',
+      }"
+    />
   </div>
 </template>
 <script setup lang="ts">
@@ -22,7 +31,7 @@
       {
         key: "aside-iconfont",
         rel: "stylesheet",
-        href: "https://at.alicdn.com/t/c/font_5223671_kfzxhaapicm.css?spm=a313x.manage_type_myprojects.i1.9.6a243a81uznDZ7&file=font_5223671_kfzxhaapicm.css",
+        href: "https://at.alicdn.com/t/c/font_5223671_kfzxhaapicm.css?spm=a313x.manage_type_myprojects.i1.9.7ef13a81X2zkYb&file=font_5223671_kfzxhaapicm.css",
       },
     ],
   });

@@ -38,10 +38,33 @@
       >
         HappyHorse 视频测试
       </p>
+      <p
+        :class="{ active: activeSlide === 'minimax_h3' }"
+        role="button"
+        tabindex="0"
+        @click="activeSlide = 'minimax_h3'"
+        @keydown.enter="activeSlide = 'minimax_h3'"
+      >
+        MiniMax-H3 视频测试11
+      </p>
+      <p
+        :class="{ active: activeSlide === 'kling' }"
+        role="button"
+        tabindex="0"
+        @click="activeSlide = 'kling'"
+        @keydown.enter="activeSlide = 'kling'"
+      >
+        Kling 视频测试
+      </p>
     </div>
     <div class="model_count">
-      文本模型有：{{ textModels.length }}，图像视频模型有：{{ mediaModels.length }}，其中
-      Seedream 有：{{ seedreamModels.length }}，HappyHorse 有：{{ happyhorseModels.length }}
+      文本模型有：{{ textModels.length }}，图像视频模型有：{{
+        mediaModels.length
+      }}，其中 Seedream 有：{{ seedreamModels.length }}，HappyHorse 有：{{
+        happyhorseModels.length
+      }}，MiniMax-H3 有：{{ minimaxH3Models.length }}，Kling 有：{{
+        klingModels.length
+      }}
     </div>
     <div class="model_viewport mt-10">
       <div
@@ -50,6 +73,8 @@
           show_media: activeSlide === 'media',
           show_seedream: activeSlide === 'seedream',
           show_happyhorse: activeSlide === 'happyhorse',
+          show_minimax_h3: activeSlide === 'minimax_h3',
+          show_kling: activeSlide === 'kling',
         }"
       >
         <div v-for="slide in slides" :key="slide.id" class="model_slide">
@@ -108,7 +133,8 @@
             </figure>
           </div>
         </div>
-        <div class="model_slide video_test_happyhorse">
+        <div class="model_slide video_test">
+          <h2>{{ activeVideoName }} 视频测试</h2>
           <select v-model="videoMode">
             <option value="text">文生视频</option>
             <option value="image">图生视频</option>
@@ -116,7 +142,7 @@
           <select v-model="selectedVideoModel">
             <option disabled value="">请选择模型</option>
             <option
-              v-for="model in happyhorseModels"
+              v-for="model in activeVideoModels"
               :key="model.id"
               :value="model.id"
             >
@@ -140,8 +166,13 @@
             <label>
               清晰度
               <select v-model="videoSize">
-                <option value="720P">720P</option>
-                <option value="1080P">1080P</option>
+                <option
+                  v-for="size in activeVideoSizes"
+                  :key="size"
+                  :value="size"
+                >
+                  {{ size }}
+                </option>
               </select>
             </label>
             <label v-if="videoMode === 'text'">
@@ -153,10 +184,16 @@
             </label>
           </div>
           <div class="video_actions">
-            <button :disabled="videoCreating || !canCreateVideo" @click="createVideoTask">
+            <button
+              :disabled="videoCreating || !canCreateVideo"
+              @click="createVideoTask"
+            >
               {{ videoCreating ? "创建中..." : "创建视频任务" }}
             </button>
-            <button :disabled="videoQuerying || !videoTaskId.trim()" @click="queryVideoTask">
+            <button
+              :disabled="videoQuerying || !canQueryVideo"
+              @click="queryVideoTask"
+            >
               {{ videoQuerying ? "查询中..." : "查询视频任务" }}
             </button>
           </div>
@@ -172,22 +209,29 @@
           <div v-if="videoImage || videoResult" class="media_compare">
             <figure v-if="videoMode === 'image' && videoImage">
               <figcaption>输入图片</figcaption>
-              <img :src="videoImage" alt="HappyHorse 输入图片预览" />
+              <img :src="videoImage" :alt="`${activeVideoName} 输入图片预览`" />
             </figure>
             <figure v-if="videoResult" class="generated_media">
               <figcaption>生成视频</figcaption>
               <video
                 :key="videoResult"
-                :src="videoResult"
                 controls
-                @error="videoTaskError = '视频地址已返回，但浏览器无法加载该视频'"
-              ></video>
+                preload="metadata"
+                @error="
+                  videoTaskError = '视频地址已返回，但浏览器无法加载该视频'
+                "
+              >
+                <source :src="videoResult" :type="videoMimeType" />
+                当前浏览器不支持视频播放
+              </video>
               <a :href="videoResult" target="_blank" rel="noopener noreferrer">
                 打开视频原始地址
               </a>
             </figure>
           </div>
-          <pre v-if="videoTaskDetails" class="video_task_details">{{ videoTaskDetails }}</pre>
+          <pre v-if="videoTaskDetails" class="video_task_details">{{
+            videoTaskDetails
+          }}</pre>
         </div>
       </div>
     </div>
@@ -230,7 +274,16 @@
   const key = "sk-LwYm9AwcSuzd27MmqJlCRyVMMv7qlpy9uNccmq5553j5L090";
   const base = "https://tp-api.chinadatapay.com:8000";
   const prompt = "hello 你是什么模型";
-  const activeSlide = ref<"text" | "media" | "seedream" | "happyhorse">("text");
+  type SlideId =
+    | "text"
+    | "media"
+    | "seedream"
+    | "happyhorse"
+    | "minimax_h3"
+    | "kling";
+  type VideoSlideId = Extract<SlideId, "happyhorse" | "minimax_h3" | "kling">;
+
+  const activeSlide = ref<SlideId>("text");
   const testing = reactive<Record<string, boolean>>({});
   const results = reactive<Record<string, string>>({});
   const imageMode = ref<"text" | "image">("text");
@@ -243,7 +296,7 @@
   const videoMode = ref<"text" | "image">("text");
   const selectedVideoModel = ref("");
   const videoPrompt = ref(
-    "一座由硬纸板和瓶盖搭建的微型城市，在夜晚焕发出生机。一列硬纸板火车缓缓驶过，小灯点缀其间，照亮前路。",
+    "小卡扶正蓝色帽子，朝镜头自信挥手：“出发！”背包喷出两团小气流，小卡刚离地，帽子便滑下来遮住眉毛。小卡悬在半空，大眼睛向前看，两只小手慌忙扶帽：“小心碎片手雷！",
   );
   const videoImage = ref("");
   const videoDuration = ref(5);
@@ -256,6 +309,12 @@
   const videoTaskError = ref("");
   const videoTaskDetails = ref("");
   const videoResult = ref("");
+  const videoMimeType = computed(() => {
+    if (/\.webm(?:[?#]|$)/i.test(videoResult.value)) return "video/webm";
+    if (/\.mov(?:[?#]|$)/i.test(videoResult.value)) return "video/quicktime";
+    return "video/mp4";
+  });
+
   const { data: response } = await useFetch<ModelsResponse>(
     base + "/v1/models",
     {
@@ -266,17 +325,62 @@
       },
     },
   );
+  
 
-  const models = computed(() => response.value?.data ?? []);
+  const fallbackModels: Model[] = [
+    { id: "MiniMax-H3", owned_by: "MiniMax" },
+    { id: "kling-3.0", owned_by: "Kling" },
+    { id: "kling-3.0-omni", owned_by: "Kling" },
+    { id: "kling-3.0-turbo", owned_by: "Kling" },
+  ];
+  const isMiniMaxH3 = (model: Model) => /minimax[-_ ]?h3/i.test(model.id);
+  const models = computed(() => {
+    const remoteModels = response.value?.data ?? [];
+
+    return [
+      ...remoteModels,
+      ...fallbackModels.filter(
+        (fallback) =>
+          !remoteModels.some(
+            (model) => model.id.toLowerCase() === fallback.id.toLowerCase(),
+          ),
+      ),
+    ];
+  });
   const isMediaModel = (model: Model) =>
-    /seedance|seedream|happyhorse|^hy\d/i.test(model.id);
-  const textModels = computed(() => models.value.filter((model) => !isMediaModel(model)));
+    /seedance|seedream|happyhorse|kling|minimax[-_ ]?h3|^hy\d/i.test(model.id);
+  const textModels = computed(() =>
+    models.value.filter((model) => !isMediaModel(model)),
+  );
   const mediaModels = computed(() => models.value.filter(isMediaModel));
   const seedreamModels = computed(() =>
     mediaModels.value.filter((model) => /seedream/i.test(model.id)),
   );
   const happyhorseModels = computed(() =>
     mediaModels.value.filter((model) => /happyhorse/i.test(model.id)),
+  );
+  const minimaxH3Models = computed(() => mediaModels.value.filter(isMiniMaxH3));
+  const klingModels = computed(() =>
+    mediaModels.value.filter((model) =>
+      /^kling-3\.0(?:-omni|-turbo)?$/i.test(model.id),
+    ),
+  );
+  const activeVideoName = computed(() =>
+    activeSlide.value === "minimax_h3"
+      ? "MiniMax-H3"
+      : activeSlide.value === "kling"
+        ? "Kling"
+        : "HappyHorse",
+  );
+  const activeVideoModels = computed(() =>
+    activeSlide.value === "minimax_h3"
+      ? minimaxH3Models.value
+      : activeSlide.value === "kling"
+        ? klingModels.value
+        : happyhorseModels.value,
+  );
+  const activeVideoSizes = computed(() =>
+    activeSlide.value === "minimax_h3" ? ["768P", "2K"] : ["720P", "1080P"],
   );
   const canGenerateImage = computed(
     () =>
@@ -290,13 +394,32 @@
       videoPrompt.value.trim() &&
       (videoMode.value === "text" || videoImage.value.trim()),
   );
+  const canQueryVideo = computed(
+    () => Boolean(videoTaskId.value.trim()),
+  );
   const slides = computed(() => [
     { id: "text", models: textModels.value },
     { id: "media", models: mediaModels.value },
   ]);
 
-  onMounted(() => {
-    videoTaskId.value = localStorage.getItem("happyhorse_task_id") || "";
+  const isVideoSlide = (slide: SlideId): slide is VideoSlideId =>
+    slide === "happyhorse" || slide === "minimax_h3" || slide === "kling";
+  const getVideoTaskStorageKey = (slide: VideoSlideId) => `${slide}_task_id`;
+  const getVideoTaskPath = () =>
+    activeSlide.value === "kling" ? "/v2/video/tasks" : "/v1/video/tasks";
+    // activeSlide.value === "kling" ? "/v3/video/tasks" : "/v1/video/tasks";
+
+  watch(activeSlide, (slide, previousSlide) => {
+    if (!isVideoSlide(slide) || slide === previousSlide) return;
+
+    selectedVideoModel.value = "";
+    videoSize.value = activeVideoSizes.value[0] ?? "720P";
+    videoTaskId.value =
+      localStorage.getItem(getVideoTaskStorageKey(slide)) || "";
+    videoTaskStatus.value = "";
+    videoTaskError.value = "";
+    videoTaskDetails.value = "";
+    videoResult.value = "";
   });
 
   async function testModel(model: string) {
@@ -384,7 +507,8 @@
     const file = (event.target as HTMLInputElement).files?.[0];
 
     if (!file) return Promise.resolve("");
-    if (!file.type.startsWith("image/")) return Promise.reject(new Error("请选择图片文件"));
+    if (!file.type.startsWith("image/"))
+      return Promise.reject(new Error("请选择图片文件"));
 
     return new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
@@ -413,38 +537,79 @@
   }
 
   function getVideoTaskId(response: VideoTaskResponse) {
-    return response.task_id || response.id || response.data?.task_id || response.data?.id || "";
+    return (
+      response.task_id ||
+      response.id ||
+      response.data?.task_id ||
+      response.data?.id ||
+      ""
+    );
   }
 
   function normalizeVideoUrl(value: string) {
     const markdownUrl = value.match(/^\[[^\]]*\]\((https?:\/\/.+)\)$/)?.[1];
-    return (markdownUrl || value).replaceAll("&amp;", "&").replaceAll("\\&", "&");
+    return (markdownUrl || value)
+      .trim()
+      .replaceAll("&amp;", "&")
+      .replaceAll("\\&", "&");
   }
 
-  function getVideoResult(value: unknown): string {
+  function getVideoResult(value: unknown, acceptUrl = false): string {
     if (typeof value === "string") {
       const url = normalizeVideoUrl(value);
-      return /\.(mp4|webm|mov)(\?|$)/i.test(url) ? url : "";
+      const isMediaFile = /\.(mp4|webm|mov)(?:[?#]|$)/i.test(url);
+      const isMediaUrl = /^(https?:\/\/|blob:|data:video\/)/i.test(url);
+      return isMediaFile || (acceptUrl && isMediaUrl) ? url : "";
     }
 
     if (Array.isArray(value)) {
-      return value.map(getVideoResult).find(Boolean) || "";
+      return (
+        value.map((item) => getVideoResult(item, acceptUrl)).find(Boolean) || ""
+      );
     }
 
     if (!value || typeof value !== "object") return "";
 
     const data = value as Record<string, unknown>;
-    for (const key of ["video_url", "videoUrl", "url", "output"]) {
-      const url = getVideoResult(data[key]);
+    const mediaKeys = [
+      "video_url",
+      "videoUrl",
+      "video",
+      "url",
+      "file_url",
+      "download_url",
+      "result_url",
+      "output_url",
+    ];
+    for (const key of mediaKeys) {
+      const url = getVideoResult(data[key], true);
       if (url) return url;
     }
 
-    return Object.values(data).map(getVideoResult).find(Boolean) || "";
+    for (const key of [
+      "output",
+      "outputs",
+      "result",
+      "results",
+      "content",
+      "data",
+    ]) {
+      const url = getVideoResult(data[key], acceptUrl);
+      if (url) return url;
+    }
+
+    return (
+      Object.values(data)
+        .map((item) => getVideoResult(item))
+        .find(Boolean) || ""
+    );
   }
 
   function saveVideoTaskId(taskId: string) {
     videoTaskId.value = taskId;
-    if (import.meta.client && taskId) localStorage.setItem("happyhorse_task_id", taskId);
+    if (import.meta.client && taskId && isVideoSlide(activeSlide.value)) {
+      localStorage.setItem(getVideoTaskStorageKey(activeSlide.value), taskId);
+    }
   }
 
   function applyVideoTaskResponse(response: VideoTaskResponse) {
@@ -462,33 +627,56 @@
     videoCreating.value = true;
     videoTaskError.value = "";
     videoResult.value = "";
+    const taskPath = getVideoTaskPath();
 
-    const body: {
-      model: string;
-      prompt: string;
-      duration: number;
-      size: string;
-      image?: string;
-      metadata?: { ratio: string };
-    } = {
-      model: selectedVideoModel.value,
-      prompt: videoPrompt.value,
-      duration: videoDuration.value,
-      size: videoSize.value,
-    };
-
-    if (videoMode.value === "image") body.image = videoImage.value;
-    else body.metadata = { ratio: videoRatio.value };
+    const isH3 = isMiniMaxH3({
+      id: selectedVideoModel.value,
+      owned_by: "MiniMax",
+    });
+    const body = isH3
+      ? {
+          model: selectedVideoModel.value,
+          content: [
+            {
+              type: "text",
+              text: videoPrompt.value.trim(),
+            },
+            ...(videoMode.value === "image"
+              ? [
+                  {
+                    type: "image_url",
+                    image_url: { url: videoImage.value },
+                    role: "first_frame",
+                  },
+                ]
+              : []),
+          ],
+          resolution: videoSize.value,
+          duration: videoDuration.value,
+          ratio: videoMode.value === "image" ? "adaptive" : videoRatio.value,
+        }
+      : {
+          model: selectedVideoModel.value,
+          prompt: videoPrompt.value.trim(),
+          duration: videoDuration.value,
+          size: videoSize.value,
+          ...(videoMode.value === "image"
+            ? { image: videoImage.value }
+            : { metadata: { ratio: videoRatio.value } }),
+        };
 
     try {
-      const response = await $fetch<VideoTaskResponse>(base + "/v1/video/tasks", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${key}`,
+      const response = await $fetch<VideoTaskResponse>(
+        base + taskPath,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${key}`,
+          },
+          body,
         },
-        body,
-      });
+      );
       applyVideoTaskResponse(response);
     } catch (error) {
       videoTaskError.value = getFetchError(error);
@@ -500,10 +688,11 @@
   async function queryVideoTask() {
     videoQuerying.value = true;
     videoTaskError.value = "";
+    const taskPath = getVideoTaskPath();
 
     try {
       const response = await $fetch<VideoTaskResponse>(
-        `${base}/v1/video/tasks/${encodeURIComponent(videoTaskId.value)}`,
+        `${base}${taskPath}/${encodeURIComponent(videoTaskId.value)}`,
         {
           headers: { Authorization: `Bearer ${key}` },
         },
@@ -525,6 +714,7 @@
 
   .model_tabs {
     display: flex;
+    flex-wrap: wrap;
     gap: 24px;
     row-gap: 30px;
     margin-top: 24px;
@@ -563,7 +753,9 @@
     transform: translateX(-200%);
   }
 
-  .model_track.show_happyhorse {
+  .model_track.show_happyhorse,
+  .model_track.show_minimax_h3,
+  .model_track.show_kling {
     transform: translateX(-300%);
   }
 
@@ -607,7 +799,7 @@
   }
 
   .image_test_seedream,
-  .video_test_happyhorse {
+  .video_test {
     display: flex;
     box-sizing: border-box;
     flex-direction: column;
@@ -637,8 +829,8 @@
     width: min(100%, 720px);
   }
 
-  .video_test_happyhorse > select,
-  .video_test_happyhorse > input {
+  .video_test > select,
+  .video_test > input {
     width: min(100%, 720px);
     padding: 10px 12px;
     border: 1px solid #ddd;
