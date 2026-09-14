@@ -1,37 +1,21 @@
-import { getDatabase } from "../../utils/db"
+import { getPrisma } from "../../utils/prisma"
 
-type PostRow = {
-  id: number
-  user_id: number
-  text: string | null
-  img: string | null
-  time: number | string | null
-}
-
-export default defineEventHandler(() => {
-  const rows = getDatabase()
-    .prepare("SELECT id, user_id, text, img, time FROM t_post ORDER BY id DESC")
-    .all() as PostRow[]
+export default defineEventHandler(async (event) => {
+  const prisma = getPrisma(event)
+  const rows = await prisma.post.findMany({ orderBy: { id: "desc" } })
 
   return {
     posts: rows.map((post) => {
-      let imgList: string[] = []
-      try {
-        const parsed = JSON.parse(post.img || "[]")
-        if (Array.isArray(parsed)) {
-          imgList = parsed.filter((image): image is string => typeof image === "string")
-        }
-      } catch {}
+      const imgList = Array.isArray(post.images)
+        ? post.images.filter((image): image is string => typeof image === "string")
+        : []
 
-      const numericTime = Number(post.time)
       return {
         id: post.id,
-        user_id: post.user_id,
+        user_id: post.userId,
         text: post.text || "",
         img_list: imgList,
-        time: Number.isFinite(numericTime)
-          ? numericTime
-          : new Date(post.time || 0).getTime(),
+        time: post.createdAt.getTime(),
       }
     }),
   }

@@ -1,18 +1,9 @@
 <template>
   <div>
     <NuxtRouteAnnouncer />
+    <VitePwaManifest />
     <!-- <NuxtWelcome /> -->
-    <p
-      v-if="route.path !== '/jiuyin' && route.path !== '/blog'"
-      class="mb"
-    >
-      请使用电脑访问😋
-    </p>
-    <NuxtPage
-      :class="{
-        pc: route.path !== '/jiuyin' && route.path !== '/blog',
-      }"
-    />
+    <NuxtPage />
   </div>
 </template>
 <script setup lang="ts">

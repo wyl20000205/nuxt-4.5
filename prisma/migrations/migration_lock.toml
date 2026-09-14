@@ -1,0 +1,2 @@
+# Prisma 用它确认迁移目录属于 PostgreSQL。
+provider = "postgresql"

@@ -690,7 +690,7 @@
 
 <script setup lang="ts">
   // @ts-expect-error qrcode 没有自带 TypeScript 类型声明
-  import qrcode from "qrcode";
+  // import qrcode from "qrcode";
 
   type PanelId = "profile" | "tokens" | "topup" | "models" | "api";
   type ModelKind = "text" | "image" | "image-edit" | "video";
@@ -973,11 +973,11 @@
       topupCodeUrl.value = result.data.code_url;
       topupTradeNo.value = result.data.trade_no;
       topupStatus.value = "pending";
-      topupQrDataUrl.value = await qrcode.toDataURL(result.data.code_url, {
-        width: 360,
-        margin: 1,
-        errorCorrectionLevel: "M",
-      });
+      // topupQrDataUrl.value = await qrcode.toDataURL(result.data.code_url, {
+      //   width: 360,
+      //   margin: 1,
+      //   errorCorrectionLevel: "M",
+      // });
       startTopupPolling();
     } catch (error) {
       topupError.value =

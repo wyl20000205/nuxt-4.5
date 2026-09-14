@@ -1,1095 +1,2483 @@
 <template>
-  <div id="pages_index" class="pc">
-    <Transition name="loading-mask">
-      <div
-        v-if="isPageLoading"
-        class="page-loading mb"
-        role="status"
-        aria-live="polite"
-        aria-label="页面资源加载中"
+  <div id="pages_blog">
+    <SiteHead @select="handleAsideSelect" />
+    <aside class="pc">
+      <p class="logo" aria-label="HUALUO">
+        <svg
+          viewBox="0 0 176 46"
+          role="img"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <text class="logo-text" x="10" y="29" transform="skewX(-8)">
+            HUALUO
+          </text>
+          <path class="logo-line" d="M7 38 H132 L148 32" />
+        </svg>
+      </p>
+      <button
+        v-for="item in item_nav"
+        v-show="item.display"
+        :key="item.text"
+        class="nav-item flex"
+        :class="{ 'is-selected': select_item === item.text }"
+        type="button"
+        :aria-current="select_item === item.text ? 'page' : undefined"
+        @click="handleAsideSelect(item.text)"
       >
-        <div class="loading-symbol" aria-hidden="true">
-          <span></span>
-          <span></span>
-          <i>JY</i>
+        <i :class="['item-icon', 'yumao', item.icon]" aria-hidden="true"></i>
+        <span>{{ item.text }}</span>
+      </button>
+    </aside>
+    <main class="flex">
+      <div class="head pc flex">
+        <div class="l flex"><p>最新文章</p></div>
+        <!-- <div class="r flex">
+          <p class="inp flex" :class="{ 'is-open': search_open }">
+            <button
+              class="search-trigger"
+              type="button"
+              :aria-label="search_open ? '搜索文章' : '展开搜索'"
+              :aria-expanded="search_open"
+              @click="handleSearch"
+            >
+              <i class="yumao icon-a-042_sousuo" aria-hidden="true"></i>
+            </button>
+            <input
+              ref="search_input"
+              type="text"
+              maxlength="12"
+              placeholder="搜索文章"
+              aria-label="搜索文章"
+              @keydown.esc="closeSearch"
+              @input="removeSpaces"
+              class="text-xl"
+            />
+            <button
+              class="close-trigger"
+              type="button"
+              aria-label="关闭搜索"
+              :tabindex="search_open ? 0 : -1"
+              @click="closeSearch"
+            >
+              <i class="yumao icon-close" aria-hidden="true"></i>
+            </button>
+          </p>
+        </div> -->
+      </div>
+      <div
+        ref="post_scroll"
+        class="main"
+        :aria-busy="home_loading || bottom_loading"
+        @scroll.passive="handleMainScroll"
+      >
+        <div class="send_head flex">
+          <p class="img" :class="{ 'is-loaded': home_avatar_loaded }">
+            <i
+              class="avatar-placeholder yumao icon-a-042_wode-09"
+              aria-hidden="true"
+            ></i>
+            <NuxtImg
+              ref="home_avatar_image"
+              :src="qq_img"
+              alt="用户头像"
+              loading="lazy"
+              format="webp"
+              quality="40"
+              @load="home_avatar_loaded = true"
+              @error="home_avatar_loaded = false"
+            />
+          </p>
+          <p class="prompt" @click="handleAsideSelect('发帖')">
+            今天有什么有趣的事吗？🤔
+          </p>
+          <p class="action">
+            <button type="button" @click="openSendArticle">发帖</button>
+          </p>
         </div>
-        <p>正在加载网络</p>
-        <i class="loading-line" aria-hidden="true"></i>
-      </div>
-    </Transition>
-    <div class="ink-scene" aria-hidden="true">
-      <span
-        v-for="(_, index) in rippleStyles"
-        :key="index"
-        :style="rippleStyles[index]"
-        @animationiteration="randomizeRipple(index)"
-      ></span>
-    </div>
-    <header :class="{ 'is-condensed': isHeaderCondensed }">
-      <div class="l">
-        <p>
-          <img src="/images/logo_2.png" alt="九音图标" />
-          <img src="/images/logo_1.png" alt="JIUYIN" />
-        </p>
-      </div>
-      <div class="r">
-        <p><i class="agent_btn btn">媒体流</i></p>
-        <p><i class="agent_btn btn">剪辑流</i></p>
-        <p><i class="agent_btn btn">智能体</i></p>
-        <p><i @click="go_ai" class="api_btn">密钥</i></p>
-        <p><i @click="go_login" class="login_btn">登录</i></p>
-        <p class="language"><i class="is-active">中文</i><i>EN</i></p>
-      </div>
-    </header>
-    <main :class="{ 'is-ready': isMainReady }">
-      <div class="l">
-        <p>
-          <i class="yumao icon-star-smile-line"></i
-          ><i
-            >主流智能模型统一聚合，一个接口完成调用管理，让模型调用简单又稳定。无需切换平台轻松实现高并发、低延迟的智能服务集成。
-            <span class="notice-arrow">→</span></i
+        <div
+          class="loading"
+          :class="{ 'is-visible': home_loading }"
+          :aria-hidden="!home_loading"
+        >
+          <p class="yumao icon-jiazai"></p>
+        </div>
+        <SkeletonBlog v-if="posts_loading" />
+        <div v-else class="item_box">
+          <div
+            v-for="post in post_items"
+            :key="post.id"
+            class="item"
+            :data-post-id="post.id"
           >
-        </p>
-        <p>快速连接 主流模型</p>
-        <div class="features">
-          <div>
-            <p>一次接入</p>
-            <p>接入一个密钥，即可<br />调用多家主流模型</p>
-          </div>
-          <div>
-            <p>格式兼容</p>
-            <p>统一请求格式，快速<br />切换不同模型</p>
-          </div>
-          <div>
-            <p>统一管理</p>
-            <p>密钥、账单、线路统一集中管理</p>
+            <div class="item_content flex">
+              <p
+                class="l"
+                :class="{ 'is-loaded': post_avatar_loaded[post.id] }"
+              >
+                <i
+                  class="avatar-placeholder yumao icon-a-042_wode-09"
+                  aria-hidden="true"
+                ></i>
+                <NuxtImg
+                  v-if="visible_post_ids.has(post.id)"
+                  :src="post.avatar"
+                  :alt="`${post.author} 的头像`"
+                  :data-post-avatar-id="post.id"
+                  loading="lazy"
+                  @load="post_avatar_loaded[post.id] = true"
+                  @error="post_avatar_loaded[post.id] = false"
+                  quality="40"
+                  format="webp"
+                />
+                <i
+                  class="avatar-add yumao icon-jiahao1"
+                  aria-label="关注用户"
+                ></i>
+              </p>
+              <div class="r">
+                <div class="h flex">
+                  <p class="h_l">
+                    <em class="name">{{ post.author }}</em
+                    ><em class="time">{{ formatPostTime(post.time) }}</em>
+                  </p>
+                  <p class="h_r" aria-label="更多操作">
+                    <em
+                      class="yumao icon-gengduo"
+                      role="button"
+                      tabindex="0"
+                      aria-haspopup="menu"
+                    ></em>
+                    <span class="more-menu" role="menu">
+                      <em role="menuitem" tabindex="0">不感兴趣</em>
+                      <em role="menuitem" tabindex="0">举报</em>
+                    </span>
+                  </p>
+                </div>
+                <pre class="m">{{ post.content }}</pre>
+                <picture
+                  v-if="post.img_list?.length"
+                  class="img_box flex"
+                  @pointerdown="handleGalleryPointerDown"
+                  @pointermove="handleGalleryPointerMove"
+                  @pointerup="handleGalleryPointerUp"
+                  @pointercancel="handleGalleryPointerUp"
+                >
+                  <span
+                    v-for="(image, index) in post.img_list"
+                    :key="`${post.id}-${index}`"
+                    class="img"
+                  >
+                    <NuxtImg
+                      v-if="visible_post_ids.has(post.id)"
+                      :src="getPostImageSrc(image)"
+                      :alt="`${post.author} 的图片 ${index + 1}`"
+                      :provider="isRemoteImage(image) ? 'weserv' : undefined"
+                      :format="isRemoteImage(image) ? 'webp' : undefined"
+                      quality="70"
+                      loading="lazy"
+                      densities="1x"
+                      decoding="async"
+                      draggable="false"
+                      @click="
+                        openImagePreview(
+                          image,
+                          `${post.author} 的图片 ${index + 1}`,
+                        )
+                      "
+                    />
+                  </span>
+                </picture>
+                <div class="b flex">
+                  <em
+                    class="num_love flex"
+                    :class="{ 'is-liked': isPostLiked(post.id) }"
+                    role="button"
+                    tabindex="0"
+                    :aria-pressed="isPostLiked(post.id)"
+                    @click.stop="handlePostLike(post)"
+                    @keydown.enter.stop="handlePostLike(post)"
+                  >
+                    <Transition name="like-icon" mode="out-in">
+                      <i
+                        :key="isPostLiked(post.id) ? 'liked' : 'unliked'"
+                        :class="[
+                          'yumao',
+                          isPostLiked(post.id)
+                            ? 'icon-hongxin1'
+                            : 'icon-a-042_dianzan-02',
+                        ]"
+                      ></i>
+                    </Transition>
+                    <span class="like-count" aria-live="polite">
+                      <span
+                        v-for="(digit, digit_index) in String(post.likes).split(
+                          '',
+                        )"
+                        :key="`${post.id}-${digit_index}`"
+                        class="like-digit"
+                      >
+                        <Transition
+                          :name="
+                            like_transition_direction[post.id] === 'down'
+                              ? 'like-count-down'
+                              : 'like-count'
+                          "
+                        >
+                          <span :key="digit" class="like-count-value">{{
+                            digit
+                          }}</span>
+                        </Transition>
+                      </span>
+                    </span>
+                  </em>
+                  <em class="num_reply flex"
+                    ><i class="yumao icon-a-042_xiaoxi"></i
+                    ><i>{{ post.replies }}</i></em
+                  >
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-      <div class="r" @click="go_ai_web">
-        <p>模型聚合<br />调用网关</p>
-        <p>
-          <i>获取密钥 <span class="todo"></span></i>
-        </p>
+        <div
+          class="item_bottom"
+          :class="{ 'is-visible': bottom_loading }"
+          :aria-hidden="!bottom_loading"
+        >
+          <p class="yumao icon-jiazai"></p>
+        </div>
       </div>
     </main>
-    <footer ref="footerElement" :class="{ 'is-ready': isFooterReady }">
-      <div class="footer-columns">
-        <div class="c_1">
-          <p class="footer-logo">
-            <img src="/images/logo_2.png" alt="九音图标" />
-            <img src="/images/logo_1.png" alt="JIUYIN" />
+    <Transition name="image-preview">
+      <div
+        v-show="preview_open"
+        id="look_img_mask"
+        ref="preview_dialog"
+        class="mask"
+        role="dialog"
+        aria-modal="true"
+        aria-label="图片预览"
+        :aria-hidden="!preview_open"
+        tabindex="-1"
+        @keydown.esc="closeImagePreview"
+        @wheel.prevent
+      >
+        <div class="bg" @click="closeImagePreview"></div>
+        <div class="preview-main">
+          <em
+            class="preview-close yumao icon-close"
+            role="button"
+            tabindex="0"
+            aria-label="关闭图片预览"
+            title="关闭"
+            @click="closeImagePreview"
+            @keydown.enter="closeImagePreview"
+            @keydown.space.prevent="closeImagePreview"
+          ></em>
+          <p class="preview-stage">
+            <img
+              class="preview-image"
+              :class="`is-${preview_orientation}`"
+              :src="preview_src"
+              :alt="preview_alt"
+              draggable="false"
+              :style="{
+                transform: `rotate(${preview_rotation}deg) scale(${preview_scale})`,
+              }"
+              @load="handlePreviewImageLoad"
+            />
           </p>
-          <p>AI 模型服务与开放平台</p>
-          <p>连接每一份 AI 能力</p>
-          <p>让智能调用更简单</p>
-          <p class="socials">
-            <a href="mailto:hello@jiuyin.ai" aria-label="邮箱">✉</a>
-            <a href="#" aria-label="GitHub">GH</a>
-            <a href="#" aria-label="微信">微</a>
-            <a href="#" aria-label="知乎">知</a>
+          <p class="preview-tools flex" aria-label="图片调整工具">
+            <em
+              class="preview-control"
+              role="button"
+              tabindex="0"
+              aria-label="顺时针旋转"
+              title="顺时针旋转"
+              @click="rotatePreview(90)"
+              @keydown.enter="rotatePreview(90)"
+              @keydown.space.prevent="rotatePreview(90)"
+              >↻</em
+            >
+            <em
+              class="preview-control"
+              role="button"
+              tabindex="0"
+              aria-label="逆时针旋转"
+              title="逆时针旋转"
+              @click="rotatePreview(-90)"
+              @keydown.enter="rotatePreview(-90)"
+              @keydown.space.prevent="rotatePreview(-90)"
+              >↺</em
+            >
+            <em
+              class="preview-control"
+              :class="{ 'is-disabled': preview_scale >= 3 }"
+              role="button"
+              tabindex="0"
+              aria-label="放大图片"
+              :aria-disabled="preview_scale >= 3"
+              title="放大"
+              @click="zoomPreview(0.25)"
+              @keydown.enter="zoomPreview(0.25)"
+              @keydown.space.prevent="zoomPreview(0.25)"
+              >＋</em
+            >
+            <em
+              class="preview-control"
+              :class="{ 'is-disabled': preview_scale <= 0.5 }"
+              role="button"
+              tabindex="0"
+              aria-label="缩小图片"
+              :aria-disabled="preview_scale <= 0.5"
+              title="缩小"
+              @click="zoomPreview(-0.25)"
+              @keydown.enter="zoomPreview(-0.25)"
+              @keydown.space.prevent="zoomPreview(-0.25)"
+              >−</em
+            >
           </p>
-        </div>
-        <div class="c_2">
-          <p>产品</p>
-          <a href="#">模型广场</a>
-          <a href="#">开放平台</a>
-          <a href="#">开发文档</a>
-          <a href="#">价格说明</a>
-          <a href="#">服务状态</a>
-        </div>
-        <div class="c_3">
-          <p>能力</p>
-          <a href="#">主流模型</a>
-          <a href="#">智能路由</a>
-          <a href="#">统一密钥</a>
-          <a href="#">用量管理</a>
-          <a href="#">更多能力</a>
-        </div>
-        <div class="c_4">
-          <p>法务</p>
-          <a href="#">隐私政策</a>
-          <a href="#">用户协议</a>
-          <a href="#">安全反馈</a>
-          <a href="#">服务条款</a>
-        </div>
-        <div class="c_5">
-          <p>加入</p>
-          <a href="#">岗位详情</a>
-          <a href="#">联系我们</a>
         </div>
       </div>
-      <p class="copyright">
-        2026 久引智能科技（江苏）有限公司 Inc. 保留所有权利 — All Rights
-        Reserved. 苏ICP备2026050001号
-      </p>
-    </footer>
+    </Transition>
+    <Transition name="send_article_preview">
+      <div
+        v-if="send_article_open"
+        id="send_article_mask"
+        ref="send_article_dialog"
+        class="mask"
+        role="dialog"
+        aria-modal="true"
+        aria-label="新建帖子"
+        tabindex="-1"
+        @keydown.esc="closeSendArticle"
+      >
+        <div class="bg" @click="closeSendArticle"></div>
+        <div class="main send-article-main">
+          <header class="flex">
+            <strong>新建帖子</strong>
+            <button
+              class="send-cancel text-xl"
+              type="button"
+              @click="closeSendArticle"
+            >
+              取消
+            </button>
+          </header>
+          <div class="send-article-body flex">
+            <img :src="qq_img" alt="用户头像" />
+            <div class="send-editor">
+              <strong>Hualuo</strong>
+              <div
+                class="send-content"
+                contenteditable="true"
+                role="textbox"
+                aria-multiline="true"
+                data-placeholder="有什么新鲜事吗？"
+                aria-label="帖子内容"
+                @input="handleSendArticleInput"
+              ></div>
+              <div
+                v-if="send_article_images.length"
+                class="send-images flex"
+                @pointerdown="handleGalleryPointerDown"
+                @pointermove="handleGalleryPointerMove"
+                @pointerup="handleGalleryPointerUp"
+                @pointercancel="handleGalleryPointerUp"
+              >
+                <figure
+                  v-for="(image, index) in send_article_images"
+                  :key="image.url"
+                >
+                  <img :src="image.url" :alt="image.name" />
+                  <button
+                    class="flex"
+                    type="button"
+                    :aria-label="`移除图片 ${image.name}`"
+                    @click="removeSendImage(index)"
+                  >
+                    <em class="yumao icon-close" aria-hidden="true"></em>
+                  </button>
+                </figure>
+              </div>
+            </div>
+          </div>
+          <footer class="flex">
+            <label class="send-image-trigger" title="添加图片">
+              <em
+                class="yumao icon-a-042_tupian-01 text-3xl"
+                aria-hidden="true"
+              ></em>
+              <span class="sr-only">添加图片</span>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                @change="handleSendImages"
+              />
+            </label>
+            <p v-if="send_article_error" class="form-error" role="alert">
+              {{ send_article_error }}
+            </p>
+            <button
+              type="button"
+              @click="todo"
+              :disabled="
+                send_article_pending ||
+                (!send_article_text.trim() && !send_article_images.length)
+              "
+            >
+              {{ send_article_pending ? "发布中" : "发布" }}
+            </button>
+          </footer>
+        </div>
+      </div>
+    </Transition>
+    <Transition name="login_preview">
+      <div
+        v-if="login_open"
+        id="login_preview"
+        role="dialog"
+        aria-modal="true"
+        aria-label="密钥登录"
+        tabindex="-1"
+        @keydown.esc="closeLogin"
+      >
+        <div class="bg" @click="closeLogin"></div>
+        <div class="main login-main">
+          <input
+            ref="login_key_input"
+            v-model="login_key"
+            type="password"
+            placeholder="请输入密钥"
+            aria-label="请输入密钥"
+            autocomplete="current-password"
+            @keyup.enter="login_todo"
+          />
+          <button
+            type="button"
+            :disabled="login_pending || !login_key"
+            @click="login_todo"
+          >
+            {{ login_pending ? "验证中" : "验证" }}
+          </button>
+          <p v-if="login_error" class="form-error" role="alert">
+            {{ login_error }}
+          </p>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <script setup lang="ts">
-  const isHeaderCondensed = ref(false);
-  const isPageLoading = ref(true);
-  const isMainReady = ref(false);
-  const isFooterReady = ref(false);
-  const footerElement = ref<HTMLElement | null>(null);
-  const rippleStyles = ref([
-    { left: "20%", top: "16%", animationDelay: "0s" },
-    { left: "70%", top: "35%", animationDelay: "-2s" },
-    { left: "12%", top: "70%", animationDelay: "-4s" },
-    { left: "58%", top: "68%", animationDelay: "-6s" },
-  ]);
-  let mainRevealFrame = 0;
-  let mainReadyFrame = 0;
-  let loadingTimer = 0;
-  let isPageUnmounted = false;
-  let footerObserver: IntersectionObserver | null = null;
+  import { useIndexStore } from "~/stores/index";
 
-  const updateHeaderState = () => {
-    isHeaderCondensed.value = window.scrollY > 8;
+  type PostItem = {
+    id: number;
+    author: string;
+    avatar: string;
+    time: number;
+    content: string;
+    img_list?: string[];
+    likes: number;
+    replies: number;
   };
 
-  const createRipplePosition = (index: number) => {
-    const current = rippleStyles.value[index];
-    let left = 8 + Math.random() * 76;
-    let top = 8 + Math.random() * 72;
-    const currentLeft = Number.parseFloat(current?.left || "0");
-    const currentTop = Number.parseFloat(current?.top || "0");
+  type StoredPost = {
+    id: number;
+    user_id: number;
+    text: string;
+    img_list: string[];
+    time: number;
+  };
 
-    while (
-      Math.abs(left - currentLeft) < 18 &&
-      Math.abs(top - currentTop) < 18
-    ) {
-      left = 8 + Math.random() * 76;
-      top = 8 + Math.random() * 72;
+  type PreviewOrientation = "portrait" | "landscape" | "square";
+
+  const { item_nav } = storeToRefs(useIndexStore());
+
+  type SendArticleImage = {
+    name: string;
+    url: string;
+    file: File;
+  };
+
+  const qq_img = "https://q1.qlogo.cn/g?b=qq&nk=1799498990&s=640";
+  const home_avatar_loaded = ref(false);
+  const post_avatar_loaded = reactive<Record<number, boolean>>({});
+  const visible_post_ids = reactive(new Set<number>());
+  const liked_post_ids = ref<Set<number>>(new Set());
+  const like_transition_direction = reactive<Record<number, "up" | "down">>({});
+  const post_items = ref<PostItem[]>([
+    {
+      id: 2,
+      author: "Mori",
+      avatar: "https://q1.qlogo.cn/g?b=qq&nk=10000&s=640",
+      time: 1786938480000,
+      content: "周末去逛了旧书店，带回一本很喜欢的散文集。",
+      likes: 46,
+      replies: 9,
+    },
+    {
+      id: 3,
+      author: "Sora",
+      avatar: "https://q1.qlogo.cn/g?b=qq&nk=123456&s=640",
+      time: 1786935600000,
+      content:
+        "正在尝试把每日计划缩减到三件真正重要的事。\n完成感比忙碌更重要。",
+      likes: 72,
+      replies: 18,
+    },
+    {
+      id: 4,
+      author: "Nina",
+      avatar: "https://q1.qlogo.cn/g?b=qq&nk=888888&s=640",
+      time: 1786928400000,
+      content: "分享一首适合通勤路上循环的歌，节奏轻快，心情也会亮一点。",
+      likes: 35,
+      replies: 4,
+    },
+    {
+      id: 5,
+      author: "阿岚",
+      avatar: "https://q1.qlogo.cn/g?b=qq&nk=5201314&s=640",
+      time: 1786885200000,
+      content: "雨天在窗边喝咖啡，看着街道慢慢安静下来。",
+      likes: 109,
+      replies: 23,
+    },
+    {
+      id: 6,
+      author: "Kiki",
+      avatar: "https://q1.qlogo.cn/g?b=qq&nk=246810&s=640",
+      time: 1786876920000,
+      content:
+        "今天把房间收拾了一遍。\n桌面干净以后，思路也清楚了不少。\n晚上想做一道简单的番茄鸡蛋面。",
+      likes: 18,
+      replies: 3,
+    },
+  ]);
+  const select_item = ref("首页");
+  const posts_loading = ref(true);
+  const home_loading = ref(false);
+  const bottom_loading = ref(false);
+  const search_open = ref(false);
+  const search_input = ref<HTMLInputElement | null>(null);
+  const home_avatar_image = ref<HTMLImageElement | null>(null);
+  const post_scroll = ref<HTMLElement | null>(null);
+  const send_article_dialog = ref<HTMLElement | null>(null);
+  const send_article_open = ref(false);
+  const send_article_text = ref("");
+  const send_article_images = ref<SendArticleImage[]>([]);
+  const send_article_pending = ref(false);
+  const send_article_error = ref("");
+  const login_open = ref(false);
+  const login_key = ref("");
+  const login_key_input = ref<HTMLInputElement | null>(null);
+  const login_pending = ref(false);
+  const login_error = ref("");
+  const preview_dialog = ref<HTMLElement | null>(null);
+  const preview_open = ref(false);
+  const preview_src = ref("");
+  const preview_alt = ref("");
+  const preview_rotation = ref(0);
+  const preview_scale = ref(1);
+  const preview_orientation = ref<PreviewOrientation>("square");
+  let homeLoadingTimer: number | undefined;
+  let bottomLoadingTimer: number | undefined;
+  let bottomReached = false;
+  let postImageObserver: IntersectionObserver | undefined;
+
+  const formatPostTime = (value: number) => {
+    const timestamp = value < 1_000_000_000_000 ? value * 1000 : value;
+    const date = new Date(timestamp);
+    const now = new Date();
+
+    if (Number.isNaN(date.getTime())) return "";
+
+    const elapsed = now.getTime() - timestamp;
+    if (elapsed >= 0 && elapsed < 60_000) return "刚刚";
+    if (elapsed >= 0 && elapsed < 3_600_000)
+      return `${Math.floor(elapsed / 60_000)}分钟前`;
+    if (elapsed >= 0 && elapsed < 86_400_000)
+      return `${Math.floor(elapsed / 3_600_000)}小时前`;
+
+    const todayStart = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    ).getTime();
+    const postStart = new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+    ).getTime();
+    const dayDistance = Math.round((todayStart - postStart) / 86_400_000);
+    if (dayDistance === 1) return "昨天";
+    if (dayDistance > 1 && dayDistance < 7) return `${dayDistance}天前`;
+    return `${date.getMonth() + 1}月${date.getDate()}日`;
+  };
+
+  const isRemoteImage = (image: string) => /^https?:\/\//i.test(image);
+  const getPostImageSrc = (image: string) =>
+    isRemoteImage(image) ? image : `/images/${image}`;
+
+  const isPostLiked = (postId: number) => liked_post_ids.value.has(postId);
+
+  const handlePostLike = (post: PostItem) => {
+    const nextLikedPostIds = new Set(liked_post_ids.value);
+
+    if (nextLikedPostIds.has(post.id)) {
+      nextLikedPostIds.delete(post.id);
+      post.likes = Math.max(0, post.likes - 1);
+      like_transition_direction[post.id] = "down";
+    } else {
+      nextLikedPostIds.add(post.id);
+      post.likes += 1;
+      like_transition_direction[post.id] = "up";
     }
 
-    return {
-      left: `${left.toFixed(2)}%`,
-      top: `${top.toFixed(2)}%`,
-      animationDelay: `${index * -2}s`,
-    };
+    liked_post_ids.value = nextLikedPostIds;
   };
 
-  const randomizeRipple = (index: number) => {
-    rippleStyles.value[index] = createRipplePosition(index);
+  let active_gallery: HTMLElement | null = null;
+  let active_gallery_pointer_id: number | null = null;
+  let gallery_start_x = 0;
+  let gallery_start_scroll_left = 0;
+  let gallery_last_x = 0;
+  let gallery_animation_frame: number | undefined;
+  let gallery_was_dragged = false;
+
+  const openImagePreview = async (image: string, alt: string) => {
+    if (gallery_was_dragged) {
+      gallery_was_dragged = false;
+      return;
+    }
+
+    preview_src.value = getPostImageSrc(image);
+    preview_alt.value = alt;
+    preview_rotation.value = 0;
+    preview_scale.value = 1;
+    preview_orientation.value = "square";
+    preview_open.value = true;
+    await nextTick();
+    preview_dialog.value?.focus();
   };
 
-  const waitForWindowLoad = () => {
-    if (document.readyState === "complete") return Promise.resolve();
-
-    return new Promise<void>((resolve) => {
-      window.addEventListener("load", () => resolve(), { once: true });
-    });
+  const closeImagePreview = () => {
+    preview_open.value = false;
   };
 
-  const waitForImages = () => {
-    const images = Array.from(
-      document.querySelectorAll<HTMLImageElement>("#pages_index img"),
-    );
-
-    return Promise.all(
-      images.map((image) => {
-        if (image.complete) return Promise.resolve();
-        return new Promise<void>((resolve) => {
-          image.addEventListener("load", () => resolve(), { once: true });
-          image.addEventListener("error", () => resolve(), { once: true });
-        });
-      }),
-    );
+  const clearSendImages = () => {
+    send_article_images.value.forEach(({ url }) => URL.revokeObjectURL(url));
+    send_article_images.value = [];
   };
 
-  const waitForFonts = async () => {
-    if (!("fonts" in document)) return;
-    await Promise.all([
-      document.fonts.load(
-        '400 18px "FZJuZhenXinFangS-R-GB"',
-        "主流智能模型统一聚合连接调用管理",
-      ),
-      document.fonts.ready,
-    ]);
+  const openSendArticle = async () => {
+    send_article_open.value = true;
+    await nextTick();
+    send_article_dialog.value
+      ?.querySelector<HTMLElement>(".send-content")
+      ?.focus();
   };
 
-  const waitForPageResources = () =>
-    Promise.race([
-      Promise.all([waitForWindowLoad(), waitForImages(), waitForFonts()]),
-      new Promise<void>((resolve) => {
-        loadingTimer = window.setTimeout(resolve, 8000);
-      }),
-    ]);
+  const closeSendArticle = () => {
+    const editor =
+      send_article_dialog.value?.querySelector<HTMLElement>(".send-content");
+    if (editor) editor.textContent = "";
+    send_article_open.value = false;
+    send_article_text.value = "";
+    send_article_error.value = "";
+    clearSendImages();
+  };
 
-  const revealMain = () => {
-    mainRevealFrame = requestAnimationFrame(() => {
-      mainReadyFrame = requestAnimationFrame(() => {
-        isMainReady.value = true;
+  const openLogin = async () => {
+    login_open.value = true;
+    await nextTick();
+    login_key_input.value?.focus();
+  };
+
+  const closeLogin = () => {
+    login_open.value = false;
+    login_key.value = "";
+    login_error.value = "";
+  };
+
+  const login_todo = async () => {
+    if (!login_key.value || login_pending.value) return;
+
+    login_pending.value = true;
+    login_error.value = "";
+    try {
+      await $fetch("/api/blog/login", {
+        method: "POST",
+        body: { password: login_key.value },
       });
+      closeLogin();
+    } catch {
+      login_error.value = "密钥错误";
+    } finally {
+      login_pending.value = false;
+    }
+  };
+
+  const handleSendImages = (event: Event) => {
+    const input = event.currentTarget as HTMLInputElement;
+    const images = Array.from(input.files ?? [])
+      .filter(({ type }) => type.startsWith("image/"))
+      .map((file) => ({
+        name: file.name,
+        url: URL.createObjectURL(file),
+        file,
+      }));
+    send_article_images.value.push(...images);
+    input.value = "";
+  };
+
+  const handleSendArticleInput = (event: Event) => {
+    send_article_text.value = (event.currentTarget as HTMLElement).innerText;
+  };
+
+  const removeSendImage = (index: number) => {
+    const [image] = send_article_images.value.splice(index, 1);
+    if (image) URL.revokeObjectURL(image.url);
+  };
+
+  const todo = async () => {
+    if (
+      send_article_pending.value ||
+      (!send_article_text.value.trim() && !send_article_images.value.length)
+    ) {
+      return;
+    }
+
+    const body = new FormData();
+    body.append("text", send_article_text.value);
+    send_article_images.value.forEach(({ file }) =>
+      body.append("images", file),
+    );
+
+    send_article_pending.value = true;
+    send_article_error.value = "";
+    try {
+      const { post } = await $fetch<{
+        post: {
+          id: number;
+          text: string;
+          img_list: string[];
+          time: number;
+        };
+      }>("/api/blog/post", { method: "POST", body });
+      const postId = -post.id;
+      post_items.value.unshift({
+        id: postId,
+        author: "Hualuo",
+        avatar: qq_img,
+        time: post.time,
+        content: post.text,
+        img_list: post.img_list,
+        likes: 0,
+        replies: 0,
+      });
+      visible_post_ids.add(postId);
+      closeSendArticle();
+      post_scroll.value?.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (error) {
+      const statusCode = (error as { statusCode?: number }).statusCode;
+      send_article_error.value =
+        statusCode === 401 ? "请先登录" : "发布失败，请稍后重试";
+    } finally {
+      send_article_pending.value = false;
+    }
+  };
+
+  const handlePreviewImageLoad = (event: Event) => {
+    const image = event.currentTarget as HTMLImageElement;
+
+    if (image.naturalHeight > image.naturalWidth) {
+      preview_orientation.value = "portrait";
+      return;
+    }
+
+    preview_orientation.value =
+      image.naturalWidth > image.naturalHeight ? "landscape" : "square";
+  };
+
+  const rotatePreview = (degrees: number) => {
+    preview_rotation.value += degrees;
+  };
+
+  const zoomPreview = (amount: number) => {
+    preview_scale.value = Math.min(
+      3,
+      Math.max(0.5, Number((preview_scale.value + amount).toFixed(2))),
+    );
+  };
+
+  const handleGalleryPointerDown = (event: PointerEvent) => {
+    if (event.pointerType !== "mouse" || event.button !== 0) return;
+
+    const gallery = event.currentTarget as HTMLElement;
+    active_gallery = gallery;
+    active_gallery_pointer_id = event.pointerId;
+    gallery_start_x = event.clientX;
+    gallery_start_scroll_left = gallery.scrollLeft;
+    gallery_last_x = event.clientX;
+    gallery_was_dragged = false;
+  };
+
+  const handleGalleryPointerMove = (event: PointerEvent) => {
+    if (
+      active_gallery !== event.currentTarget ||
+      active_gallery_pointer_id !== event.pointerId
+    ) {
+      return;
+    }
+
+    const distance = event.clientX - gallery_start_x;
+    if (Math.abs(distance) > 3) {
+      if (active_gallery.classList.contains("img_box")) {
+        gallery_was_dragged = true;
+      }
+      if (!active_gallery.hasPointerCapture(event.pointerId)) {
+        active_gallery.setPointerCapture(event.pointerId);
+      }
+      event.preventDefault();
+    }
+    gallery_last_x = event.clientX;
+
+    if (gallery_animation_frame !== undefined) return;
+    gallery_animation_frame = window.requestAnimationFrame(() => {
+      if (active_gallery) {
+        active_gallery.scrollLeft =
+          gallery_start_scroll_left - (gallery_last_x - gallery_start_x);
+      }
+      gallery_animation_frame = undefined;
     });
+  };
+
+  const handleGalleryPointerUp = (event: PointerEvent) => {
+    if (
+      active_gallery !== event.currentTarget ||
+      active_gallery_pointer_id !== event.pointerId
+    ) {
+      return;
+    }
+
+    if (active_gallery.hasPointerCapture(event.pointerId)) {
+      active_gallery.releasePointerCapture(event.pointerId);
+    }
+    active_gallery.scrollLeft =
+      gallery_start_scroll_left - (gallery_last_x - gallery_start_x);
+    if (gallery_animation_frame !== undefined) {
+      window.cancelAnimationFrame(gallery_animation_frame);
+      gallery_animation_frame = undefined;
+    }
+    active_gallery = null;
+    active_gallery_pointer_id = null;
+  };
+
+  const syncHomeAvatarLoadState = () => {
+    const homeImage = home_avatar_image.value;
+    if (homeImage?.complete && homeImage.naturalWidth > 0) {
+      home_avatar_loaded.value = true;
+    }
   };
 
   onMounted(async () => {
-    window.addEventListener("scroll", updateHeaderState, { passive: true });
-    updateHeaderState();
-    rippleStyles.value = rippleStyles.value.map((_, index) =>
-      createRipplePosition(index),
-    );
-    footerObserver = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry?.isIntersecting) return;
-        isFooterReady.value = true;
-        footerObserver?.disconnect();
-      },
-      {
-        threshold: 0.04,
-        rootMargin: "0px 0px 80px 0px",
-      },
-    );
-
-    if (footerElement.value) {
-      footerObserver.observe(footerElement.value);
+    try {
+      const { posts } = await $fetch<{ posts: StoredPost[] }>("/api/blog/post");
+      post_items.value.unshift(
+        ...posts.map((post) => ({
+          id: -post.id,
+          author: "Hualuo",
+          avatar: qq_img,
+          time: post.time,
+          content: post.text,
+          img_list: post.img_list,
+          likes: 0,
+          replies: 0,
+        })),
+      );
+      posts_loading.value = false;
+    } catch (error) {
+      console.error("加载帖子失败", error);
+      showError({
+        statusCode: 503,
+        statusMessage: "文章暂时无法加载",
+        message:
+          import.meta.dev && error instanceof Error
+            ? error.message
+            : "服务器未能返回文章数据，请稍后重试。",
+      });
+      return;
     }
 
-    await waitForPageResources();
-    window.clearTimeout(loadingTimer);
-    if (isPageUnmounted) return;
-    isPageLoading.value = false;
     await nextTick();
-    revealMain();
+    syncHomeAvatarLoadState();
+    const root = post_scroll.value;
+    if (!root) return;
+
+    postImageObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          const postId = Number((entry.target as HTMLElement).dataset.postId);
+          if (Number.isFinite(postId)) visible_post_ids.add(postId);
+          postImageObserver?.unobserve(entry.target);
+        });
+      },
+      { root, threshold: 0.01 },
+    );
+    root
+      .querySelectorAll<HTMLElement>("[data-post-id]")
+      .forEach((item) => postImageObserver?.observe(item));
   });
 
   onBeforeUnmount(() => {
-    isPageUnmounted = true;
-    window.removeEventListener("scroll", updateHeaderState);
-    window.clearTimeout(loadingTimer);
-    cancelAnimationFrame(mainRevealFrame);
-    cancelAnimationFrame(mainReadyFrame);
-    footerObserver?.disconnect();
+    postImageObserver?.disconnect();
+    clearSendImages();
+    if (homeLoadingTimer !== undefined) window.clearTimeout(homeLoadingTimer);
+    if (bottomLoadingTimer !== undefined)
+      window.clearTimeout(bottomLoadingTimer);
+    if (gallery_animation_frame !== undefined)
+      window.cancelAnimationFrame(gallery_animation_frame);
   });
+
+  const stopHomeLoading = () => {
+    if (homeLoadingTimer !== undefined) window.clearTimeout(homeLoadingTimer);
+    homeLoadingTimer = undefined;
+    home_loading.value = false;
+  };
+
+  const startHomeLoading = () => {
+    stopHomeLoading();
+    home_loading.value = true;
+    homeLoadingTimer = window.setTimeout(() => {
+      home_loading.value = false;
+      homeLoadingTimer = undefined;
+    }, 2000);
+  };
+
+  const handleAsideSelect = (text: string) => {
+    if (text === "发帖") {
+      openSendArticle();
+      return;
+    }
+    if (text === "登录") {
+      openLogin();
+      return;
+    }
+
+    select_item.value = text;
+    if (text === "首页") {
+      startHomeLoading();
+      return;
+    }
+    stopHomeLoading();
+  };
+
+  const startBottomLoading = () => {
+    if (bottomLoadingTimer !== undefined)
+      window.clearTimeout(bottomLoadingTimer);
+    bottom_loading.value = true;
+    bottomLoadingTimer = window.setTimeout(() => {
+      bottom_loading.value = false;
+      bottomLoadingTimer = undefined;
+    }, 2000);
+  };
+
+  const handleMainScroll = (event: Event) => {
+    const element = event.currentTarget as HTMLElement;
+    const distanceToBottom =
+      element.scrollHeight - element.scrollTop - element.clientHeight;
+    const reachedBottom = distanceToBottom <= 4;
+
+    if (reachedBottom && !bottomReached) {
+      bottomReached = true;
+      startBottomLoading();
+      return;
+    }
+
+    if (!reachedBottom) bottomReached = false;
+  };
 
   useHead({
-    htmlAttrs: {
-      class: "index-scrollbar-hidden",
-    },
-    bodyAttrs: {
-      class: "index-scrollbar-hidden",
-    },
+    title: "华落博客-门户首页",
+    link: [
+      {
+        key: "favicon",
+        rel: "icon",
+        type: "image/x-icon",
+        sizes: "32x32",
+        href: "/favicon.ico?v=20260816-2",
+      },
+      { rel: "stylesheet", href: "/css/public.css" },
+      {
+        key: "aside-iconfont",
+        rel: "stylesheet",
+        href: "https://at.alicdn.com/t/c/font_5223671_xx31qirzc7r.css?spm=a313x.manage_type_myprojects.i1.9.6a243a81NbbaTu&file=font_5223671_xx31qirzc7r.css",
+      },
+    ],
   });
-
-  let router = useRouter();
-
-  const go_ai_web = () => router.push("/login");
-
-  const go_ai = () => router.push("/login");
-  const go_login = () => {
-    router.push("/login");
-  };
 </script>
 
 <style scoped lang="less">
-  #pages_index {
+  #pages_blog {
     position: relative;
-    width: 100%;
-    overflow: hidden;
-    isolation: isolate;
-    color: #102c25;
-    background: linear-gradient(
-      112deg,
-      rgba(251, 253, 252, 0.96),
-      rgba(229, 241, 235, 0.78)
-    );
+    min-height: 100vh;
+    color: #fff;
 
-    &::before,
-    &::after {
-      position: absolute;
-      z-index: -1;
-      pointer-events: none;
-      content: "";
-    }
-
-    &::before {
-      inset: 0;
-      opacity: 0.58;
-      background-image:
-        linear-gradient(90deg, rgba(34, 111, 79, 0.095) 1px, transparent 1px),
-        linear-gradient(rgba(34, 111, 79, 0.045) 1px, transparent 1px);
-      background-size:
-        128px 100%,
-        100% 128px;
-      mask-image: linear-gradient(
-        90deg,
-        rgba(0, 0, 0, 0.68),
-        rgba(0, 0, 0, 0.16)
-      );
-    }
-
-    &::after {
-      inset: 0;
-      opacity: 0.54;
-      background: linear-gradient(
-        111deg,
-        transparent 27%,
-        rgba(255, 255, 255, 0.38) 48%,
-        transparent 64%
-      );
-      mix-blend-mode: soft-light;
-    }
-
-    .page-loading {
+    aside {
       position: fixed;
-      inset: 0;
-      z-index: 1000;
-      display: flex;
-      height: 100vh;
+      top: 0;
+      left: 0;
+      box-sizing: border-box;
+      width: 280px;
+      min-height: 100dvh;
+      padding: 36px 24px;
       overflow: hidden;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      color: #0a7f50;
-      background:
-        linear-gradient(rgba(249, 255, 252, 0.94), rgba(235, 248, 241, 0.96)),
-        #edf7f2;
+      border-right: 1px solid rgba(255, 255, 255, 0.09);
 
-      .loading-symbol {
+      &::before {
+        position: absolute;
+        top: -90px;
+        left: -110px;
+        width: 260px;
+        height: 260px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.035);
+        filter: blur(2px);
+        content: "";
+        pointer-events: none;
+      }
+
+      &::after {
+        position: absolute;
+        top: 36px;
+        right: -1px;
+        width: 1px;
+        height: 110px;
+        background: linear-gradient(transparent, #9f9fa7, transparent);
+        content: "";
+        opacity: 0.55;
+        pointer-events: none;
+      }
+
+      > p,
+      > button {
         position: relative;
-        display: grid;
-        width: 84px;
-        height: 84px;
-        place-items: center;
+        z-index: 1;
+        cursor: pointer;
+        transition:
+          color 0.25s ease,
+          background-color 0.25s ease,
+          border-color 0.25s ease,
+          transform 0.25s ease;
+      }
 
-        span {
-          position: absolute;
-          inset: 0;
-          border: 1px solid rgba(10, 151, 92, 0.44);
-          border-radius: 50%;
-          animation: loading-ripple 1.8s ease-out infinite;
+      .logo {
+        width: 176px;
+        height: 46px;
+        margin: 0 8px 30px;
+        cursor: default;
+
+        svg {
+          display: block;
+          width: 100%;
+          height: 100%;
+          overflow: visible;
         }
 
-        span:nth-child(2) {
-          animation-delay: 0.6s;
+        .logo-text {
+          fill: transparent;
+          stroke: #111;
+          stroke-width: 1;
+          stroke-linejoin: round;
+          stroke-dasharray: 340;
+          stroke-dashoffset: 340;
+          font-family: "Arial Black", Arial, sans-serif;
+          font-size: 25px;
+          font-style: italic;
+          font-weight: 900;
+          letter-spacing: 2.5px;
+          paint-order: stroke fill;
+          animation:
+            logo-draw 1.8s cubic-bezier(0.65, 0, 0.35, 1) forwards,
+            logo-fill 0.65s ease 1.35s forwards;
         }
 
-        i {
-          position: relative;
-          z-index: 1;
-          font-size: 19px;
+        .logo-line {
+          fill: none;
+          stroke: #777;
+          stroke-width: 1.2;
+          stroke-linecap: round;
+          stroke-dasharray: 150;
+          stroke-dashoffset: 150;
+          opacity: 0.7;
+          transform: translateX(-5px);
+          animation: logo-line-draw 0.75s ease 1.35s forwards;
+        }
+      }
+
+      .nav-item {
+        align-items: center;
+        gap: 16px;
+        box-sizing: border-box;
+        min-height: 34px;
+        margin-bottom: 8px;
+        padding: 0 18px;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        width: 100%;
+        color: black;
+        background: transparent;
+        font-size: 17px;
+        font-weight: 500;
+        letter-spacing: 0.04em;
+        text-align: left;
+
+        .item-icon {
+          display: inline-flex;
+          flex: 0 0 24px;
+          align-items: center;
+          justify-content: center;
+          width: 24px;
+          height: 24px;
+          color: currentColor;
+          font-family: "yumao" !important;
+          font-size: 24px;
           font-style: normal;
-          font-weight: 600;
-          letter-spacing: 0.08em;
+          transition:
+            color 0.25s ease,
+            transform 0.25s ease;
+        }
+
+        &:not(.is-selected):hover {
+          border-color: #f6f6f6;
+          background: #f6f6f6;
+          transform: translateX(2px);
         }
       }
 
-      p {
-        margin: 22px 0 14px;
-        font-size: 15px;
-        letter-spacing: 0.16em;
-      }
-
-      .loading-line {
-        position: relative;
-        display: block;
-        width: 150px;
-        height: 2px;
-        overflow: hidden;
-        border-radius: 2px;
-        background: rgba(13, 138, 86, 0.12);
+      .is-selected {
+        color: #111;
+        border-color: #f0f0f0;
+        background: #f0f0f0;
+        font-weight: 700;
 
         &::after {
           position: absolute;
-          top: 0;
-          left: 0;
-          width: 52px;
-          height: 100%;
-          border-radius: inherit;
-          background: #0aa366;
-          box-shadow: 0 0 14px rgba(10, 163, 102, 0.42);
+          top: 50%;
+          right: 14px;
+          width: 5px;
+          height: 5px;
+          border-radius: 50%;
+          background: #1d1d1f;
+          box-shadow: 0 0 8px rgba(0, 0, 0, 0.25);
           content: "";
-          animation: loading-line-move 1.2s ease-in-out infinite;
-        }
-      }
-    }
-
-    .loading-mask-leave-active {
-      transition:
-        opacity 0.55s ease,
-        filter 0.55s ease;
-    }
-
-    .loading-mask-leave-to {
-      opacity: 0;
-      filter: blur(12px);
-    }
-
-    .ink-scene {
-      position: absolute;
-      inset: 0;
-      z-index: 0;
-      overflow: hidden;
-      contain: paint;
-      pointer-events: none;
-
-      &::before,
-      &::after {
-        position: absolute;
-        will-change: transform;
-        content: "";
-      }
-
-      &::before {
-        inset: -38%;
-        opacity: 0.44;
-        background: repeating-radial-gradient(
-          ellipse at 28% 36%,
-          transparent 0 7.5%,
-          rgba(26, 141, 93, 0.18) 7.8% 8.1%,
-          transparent 8.4% 12.5%
-        );
-        animation: ripple-field-one 18s ease-in-out infinite alternate;
-      }
-
-      &::after {
-        inset: -44%;
-        opacity: 0.36;
-        background: repeating-radial-gradient(
-          ellipse at 76% 62%,
-          transparent 0 8%,
-          rgba(69, 181, 132, 0.18) 8.3% 8.6%,
-          transparent 8.9% 13.4%
-        );
-        animation: ripple-field-two 22s ease-in-out infinite alternate;
-      }
-
-      span {
-        position: absolute;
-        display: block;
-        width: 180px;
-        height: 180px;
-        border: 2px solid rgba(21, 154, 97, 0.34);
-        border-radius: 50%;
-        opacity: 0;
-        background: transparent;
-        box-shadow:
-          0 0 0 42px rgba(21, 154, 97, 0.16),
-          0 0 0 84px rgba(21, 154, 97, 0.1),
-          0 0 0 126px rgba(21, 154, 97, 0.06);
-        will-change: transform, opacity;
-        animation: page-ripple 8s cubic-bezier(0.2, 0.62, 0.24, 1) infinite;
-      }
-    }
-
-    header {
-      position: fixed;
-      top: 10px;
-      left: 50%;
-      z-index: 10;
-      box-sizing: border-box;
-      display: flex;
-      width: 80%;
-      height: 50px;
-      margin: 0;
-      padding: 0 30px;
-      transform: translateX(-50%);
-      align-items: center;
-      justify-content: space-between;
-      border: 1px solid transparent;
-      border-radius: 999px;
-      background: transparent;
-      box-shadow: none;
-      backdrop-filter: blur(0);
-      transition:
-        width 0.42s ease,
-        border-color 0.42s ease,
-        background 0.42s ease,
-        box-shadow 0.42s ease,
-        backdrop-filter 0.42s ease;
-
-      &.is-condensed {
-        width: 75%;
-        border-color: rgba(38, 128, 91, 0.16);
-        background: rgba(247, 255, 251, 0.58);
-        backdrop-filter: blur(18px);
-      }
-
-      .l p,
-      .r,
-      .r p,
-      .language {
-        display: flex;
-        align-items: center;
-      }
-
-      .l p {
-        gap: 2px;
-        margin: 0;
-        img {
-          cursor: pointer;
-        }
-
-        img:first-child {
-          width: 25px;
-          height: 25px;
-          object-fit: contain;
-        }
-
-        img:last-child {
-          width: 109px;
-          height: auto;
-        }
-      }
-
-      .r {
-        gap: 38px;
-
-        p {
-          margin: 0;
-        }
-
-        i {
-          font-style: normal;
-        }
-
-        .login_btn,
-        .agent_btn {
-          cursor: pointer;
-          transition: color 0.2s ease;
-          &:hover {
-            color: #08a96a;
-          }
-        }
-
-        > p:first-child i {
-          color: #174a3a;
-          font-size: 16px;
-          letter-spacing: 0.02em;
-          cursor: pointer;
-          transition: color 0.2s ease;
-          &:hover {
-            color: #08a96a;
-          }
-        }
-
-        .language {
-          gap: 2px;
-          padding: 4px 2px;
-          border: 1px solid rgba(33, 126, 87, 0.17);
-          border-radius: 999px;
-          background: rgba(220, 246, 232, 0.38);
-
-          i {
-            width: 49px;
-            padding: 6px 3px;
-            border-radius: 999px;
-            color: #477569;
-            font-size: 13px;
-            line-height: 1;
-            text-align: center;
-            cursor: pointer;
-            transition: 0.22s ease;
-
-            &.is-active {
-              color: #126446;
-              background: rgba(255, 255, 255, 0.78);
-              box-shadow: 0 3px 12px rgba(33, 131, 91, 0.1);
-            }
-          }
+          transform: translateY(-50%);
         }
       }
     }
     main {
-      position: relative;
-      z-index: 1;
-      display: flex;
-      width: 75%;
-      box-sizing: border-box;
-      height: 70vh;
-      margin: 0 auto;
-      margin-top: 205px;
-      padding: 0 0 90px;
-      opacity: 0;
-      filter: blur(16px);
-      transform: translateY(96px);
-      transition:
-        opacity 1s ease,
-        filter 1s ease,
-        transform 1s cubic-bezier(0.2, 0.72, 0.22, 1);
-      align-items: center;
-      justify-content: space-between;
-      gap: 140px;
+      position: fixed;
+      flex-direction: column;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      width: 680px;
+      height: auto;
+      margin: 0;
+      color: black;
+      overflow: hidden;
+      transform: translateX(-50%);
 
-      &.is-ready {
-        opacity: 1;
-        filter: blur(0);
-        transform: translateY(0);
-      }
-
-      > .l {
-        flex: 1 1 auto;
-
-        > p:first-child {
-          display: flex;
-          max-width: 760px;
-          margin: 0 0 34px;
-          align-items: flex-start;
-          gap: 9px;
-          color: rgba(32, 78, 63, 0.66);
-          font-size: 17px;
-          line-height: 1.75;
-          cursor: pointer;
-          transition: all 0.3s;
-          &:hover {
-            color: rgb(119, 104, 104);
-          }
-          i {
-            font-style: normal;
-          }
-
-          .yumao {
-            flex: 0 0 auto;
-            color: #16a96d;
-            font-size: 18px;
-            line-height: inherit;
-            transform-origin: center;
-            will-change: transform, opacity;
-          }
-
-          .notice-arrow {
-            display: inline-block;
-            margin-left: 9px;
-            color: #16a96d;
-            transition: transform 0.22s ease;
-          }
-
-          &:hover .notice-arrow {
-            transform: translateX(6px);
-          }
-        }
-
-        > p:nth-child(2) {
-          margin: 0;
-          color: #133e31;
-          font-size: 56px;
-          font-weight: 500;
-          letter-spacing: 0.08em;
-          line-height: 1.18;
-        }
-      }
-
-      .features {
-        display: grid;
-        margin-top: 60px;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 16px;
-
+      .head {
+        flex: 0 0 auto;
+        width: 95%;
+        align-items: center;
+        justify-content: space-between;
+        height: 50px;
+        margin: 15px auto 0;
+        margin-bottom: 15px;
         > div {
-          height: 150px;
-          padding: 26px 25px 23px;
-          box-sizing: border-box;
-          border: 1px solid rgba(255, 255, 255, 0.78);
-          border-radius: 24px;
-          background: rgba(249, 255, 252, 0.4);
-          box-shadow:
-            inset 0 1px rgba(255, 255, 255, 0.72),
-            0 16px 40px rgba(38, 110, 82, 0.06);
-          backdrop-filter: blur(18px);
-          cursor: pointer;
-          transition:
-            transform 0.26s ease,
-            background 0.26s ease,
-            box-shadow 0.26s ease;
+          align-items: center;
+        }
+        .l {
+          height: 100%;
+          width: 50%;
+          font-size: 24px;
+          font-weight: 700;
+        }
+        .r {
+          justify-content: flex-end;
+          align-items: center;
+          height: 100%;
+          width: 50%;
 
-          &:hover {
-            transform: translateY(-2px);
-            background: rgba(252, 255, 253, 0.64);
-            box-shadow:
-              inset 0 1px rgba(255, 255, 255, 0.84),
-              0 22px 45px rgba(30, 129, 89, 0.13);
+          .inp {
+            align-items: center;
+            box-sizing: border-box;
+            width: 42px;
+            height: 42px;
+            padding: 3px;
+            overflow: hidden;
+            border: 1px solid transparent;
+            border-radius: 3px;
+            background: transparent;
+            transition:
+              width 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+              border-color 0.28s ease,
+              background-color 0.28s ease,
+              box-shadow 0.28s ease;
+
+            input {
+              flex: 0 0 0;
+              min-width: 0;
+              box-sizing: border-box;
+              width: 0;
+              height: 34px;
+              padding: 0;
+              color: #171717;
+              line-height: 34px;
+              opacity: 0;
+              pointer-events: none;
+              transition:
+                width 0.34s cubic-bezier(0.22, 1, 0.36, 1),
+                flex-basis 0.34s cubic-bezier(0.22, 1, 0.36, 1),
+                padding 0.28s ease,
+                opacity 0.2s ease 0.06s;
+
+              &::placeholder {
+                color: #9a9a9f;
+              }
+            }
+
+            .search-trigger,
+            .close-trigger {
+              appearance: none;
+              display: inline-flex;
+              flex: 0 0 34px;
+              align-items: center;
+              justify-content: center;
+              box-sizing: border-box;
+              width: 34px;
+              height: 34px;
+              padding: 0;
+              border: 0;
+              border-radius: 50%;
+              color: #171717;
+              background: transparent;
+              cursor: pointer;
+              outline: none;
+              transition:
+                color 0.22s ease,
+                background-color 0.22s ease,
+                transform 0.22s ease;
+
+              i {
+                display: block;
+                font-size: 32px;
+                font-style: normal;
+                line-height: 1;
+              }
+
+              &:active {
+                transform: scale(0.94);
+              }
+            }
+
+            .close-trigger {
+              flex-basis: 0;
+              width: 0;
+              color: #6f6f73;
+              opacity: 0;
+              pointer-events: none;
+              transform: translateX(8px) rotate(-18deg);
+              transition:
+                width 0.26s ease,
+                flex-basis 0.26s ease,
+                opacity 0.18s ease,
+                color 0.22s ease,
+                background-color 0.22s ease,
+                transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+
+              i {
+                font-size: 24px;
+              }
+
+              &:hover {
+                color: #000000;
+              }
+            }
+
+            &.is-open {
+              width: 276px;
+              border-color: #dedee2;
+
+              input {
+                flex-basis: 198px;
+                width: 198px;
+                padding: 0 8px;
+                opacity: 1;
+                pointer-events: auto;
+              }
+
+              .close-trigger {
+                flex-basis: 34px;
+                width: 34px;
+                opacity: 1;
+                pointer-events: auto;
+                transform: translateX(0) rotate(0);
+              }
+            }
+          }
+        }
+      }
+      .main {
+        flex: 1;
+        box-sizing: border-box;
+        width: 100%;
+        height: auto;
+        min-height: 0;
+        padding-bottom: 24px;
+        overflow-x: hidden;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+        border-radius: 23px 23px 16px 16px;
+        border: 1px solid rgb(218, 210, 210);
+
+        &::-webkit-scrollbar {
+          display: none;
+        }
+
+        .send_head {
+          align-items: center;
+          box-sizing: border-box;
+          height: 70px;
+          gap: 18px;
+          width: 93%;
+          margin: 0 auto;
+          margin-top: 10px;
+          border-bottom: 1px solid rgb(203, 198, 198);
+          .img {
+            position: relative;
+            display: grid;
+            width: 40px;
+            height: 40px;
+            place-items: center;
+            overflow: hidden;
+            border: 1px solid #d4d4d8;
+            border-radius: 20px;
+            background: #f0f0f0;
+            box-shadow: inset 0 0 0 3px #fff;
+
+            .avatar-placeholder {
+              color: #8d8d93;
+              font-size: 25px;
+              transition: opacity 0.2s ease;
+            }
+            img {
+              position: absolute;
+              inset: 0;
+              width: 100%;
+              height: 100%;
+              border-radius: inherit;
+              object-fit: cover;
+              opacity: 0;
+              transition: opacity 0.2s ease;
+            }
+            &.is-loaded {
+              .avatar-placeholder {
+                opacity: 0;
+              }
+              img {
+                opacity: 1;
+              }
+            }
+          }
+
+          .prompt {
+            flex: 1;
+            min-width: 0;
+            color: #96969b;
+            font-size: 19px;
+            font-weight: 500;
+            letter-spacing: 0.01em;
+            cursor: pointer;
+          }
+
+          .action {
+            flex: 0 0 auto;
+
+            button {
+              min-width: 68px;
+              height: 42px;
+              padding: 0 22px;
+              border: 1px solid #d7d7db;
+              border-radius: 8px;
+              color: #151515;
+              background: #fff;
+              font-size: 18px;
+              font-weight: 700;
+              transition: all 0.3s;
+
+              &:hover {
+                color: #fff;
+                border-color: #1c1c1e;
+                background: #48484c;
+                transform: translateY(-1px);
+              }
+
+              &:active {
+                box-shadow: none;
+                transform: translateY(0) scale(0.98);
+              }
+
+              &:focus-visible {
+                outline: 2px solid #1c1c1e;
+                outline-offset: 3px;
+              }
+            }
+          }
+        }
+        .loading {
+          display: grid;
+          height: 0;
+          place-items: center;
+          margin-top: 0;
+          overflow: hidden;
+          opacity: 0;
+          pointer-events: none;
+          transition:
+            height 0.28s ease,
+            margin-top 0.28s ease,
+            opacity 0.2s ease;
+
+          &.is-visible {
+            height: 52px;
+            margin-top: 6px;
+            opacity: 1;
           }
 
           p {
+            display: block;
+            width: 34px;
+            height: 34px;
             margin: 0;
+            color: #717174;
+            font-size: 26px;
+            line-height: 34px;
+            text-align: center;
+            transform-origin: center;
+            animation: home-loading-spin 0.85s linear infinite;
+            animation-play-state: paused;
           }
 
-          p:first-child {
-            margin-bottom: 14px;
-            color: #0a9860;
-            font-size: 23px;
-            font-weight: 600;
+          &.is-visible p {
+            animation-play-state: running;
+          }
+        }
+        .item_box {
+          width: 100%;
+          margin-top: 15px;
+          > div.item {
+            width: 100%;
+            margin: 0 auto;
+            border-bottom: 1px solid rgb(195, 190, 190);
+
+            &:hover > div.item_content .r .h .h_r,
+            &:focus-within > div.item_content .r .h .h_r {
+              visibility: visible;
+              opacity: 1;
+              pointer-events: auto;
+              transform: translateX(0);
+            }
+
+            > div.item_content {
+              width: 93%;
+              margin: 0 auto;
+              margin-top: 15px;
+              margin-bottom: 10px;
+              .l {
+                position: relative;
+                display: grid;
+                flex: 0 0 38px;
+                width: 38px;
+                height: 38px;
+                place-items: center;
+                border-radius: 50%;
+                background: #f0f0f0;
+                margin-right: 13px;
+                .avatar-placeholder {
+                  color: #8d8d93;
+                  font-size: 24px;
+                  transition: opacity 0.2s ease;
+                }
+                img {
+                  position: absolute;
+                  inset: 0;
+                  width: 100%;
+                  height: 100%;
+                  border-radius: 50%;
+                  object-fit: cover;
+                  opacity: 0;
+                  transition: opacity 0.2s ease;
+                }
+                .avatar-add {
+                  position: absolute;
+                  z-index: 2;
+                  right: -5px;
+                  bottom: -4px;
+                  display: grid;
+                  width: 17px;
+                  height: 17px;
+                  place-items: center;
+                  border: 2px solid #fff;
+                  border-radius: 50%;
+                  color: #fff;
+                  background: #111;
+                  font-size: 12px;
+                  line-height: 1;
+                }
+                &.is-loaded {
+                  .avatar-placeholder {
+                    opacity: 0;
+                  }
+                  img {
+                    opacity: 1;
+                  }
+                }
+              }
+              .r {
+                transform: translateY(-3px);
+                width: 100%;
+                min-width: 0;
+                .h {
+                  justify-content: space-between;
+
+                  .h_l {
+                    margin-bottom: 2px;
+
+                    .name {
+                      font-weight: 600;
+                      margin-right: 14px;
+                      font-size: 17px;
+                      &:hover {
+                        text-decoration: underline;
+                      }
+                    }
+                    .time {
+                      color: gray;
+                      font-size: 15px;
+                    }
+                  }
+                  .h_r {
+                    position: relative;
+                    flex: 0 0 32px;
+                    margin: 0;
+                    text-align: center;
+                    visibility: hidden;
+                    opacity: 0;
+                    pointer-events: none;
+                    transform: translateX(4px);
+                    transition:
+                      opacity 0.2s ease,
+                      transform 0.2s ease;
+                    .icon-gengduo {
+                      color: #777;
+                      font-size: 22px;
+                      line-height: 24px;
+                      cursor: pointer;
+
+                      &::before {
+                        content: "\2026";
+                        font-family: Arial, sans-serif;
+                      }
+
+                      &:hover,
+                      &:focus-visible {
+                        color: #111;
+                        outline: none;
+                      }
+                    }
+                    em {
+                      margin-left: 10px;
+                    }
+
+                    .more-menu {
+                      position: absolute;
+                      z-index: 3;
+                      top: 100%;
+                      right: 0;
+                      width: max-content;
+                      padding: 6px 0;
+                      border: 1px solid #e5e5e5;
+                      border-radius: 8px;
+                      color: #333;
+                      background: #fff;
+                      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+                      visibility: hidden;
+                      opacity: 0;
+                      pointer-events: none;
+                      transform: translateY(-4px);
+                      transition:
+                        opacity 0.18s ease,
+                        transform 0.18s ease;
+
+                      em {
+                        display: block;
+                        margin: 0;
+                        padding: 7px 14px;
+                        cursor: pointer;
+
+                        &:hover,
+                        &:focus-visible {
+                          background: #f5f5f5;
+                          outline: none;
+                        }
+                      }
+                    }
+
+                    &:hover,
+                    &:focus-within {
+                      .more-menu {
+                        visibility: visible;
+                        opacity: 1;
+                        pointer-events: auto;
+                        transform: translateY(0);
+                      }
+                    }
+                  }
+                }
+                .m {
+                  font-size: 17.5px;
+                  margin-bottom: 4px;
+                  white-space: pre-wrap;
+                  overflow-wrap: anywhere;
+                  word-break: break-word;
+                }
+                .img_box {
+                  width: 100%;
+                  gap: 9px;
+                  margin: 10px 0 12px;
+                  overflow-x: auto;
+                  overscroll-behavior-x: contain;
+                  scroll-behavior: auto;
+                  scrollbar-width: none;
+                  user-select: none;
+                  contain: layout paint;
+
+                  &::-webkit-scrollbar {
+                    display: none;
+                  }
+                  &:active {
+                    cursor: grabbing;
+                  }
+                  .img {
+                    display: block;
+                    flex: 0 0 auto;
+                    height: 220px;
+                    overflow: hidden;
+                    border: 1px solid #d7d7db;
+                    border-radius: 12px;
+
+                    img {
+                      display: block;
+                      width: auto;
+                      height: 100%;
+                      max-width: none;
+                      cursor: zoom-in;
+                    }
+                  }
+                }
+                .b {
+                  align-items: center;
+                  em {
+                    align-items: center;
+                    cursor: pointer;
+                    transition: all 0.3s;
+                    margin-right: 12px;
+                    background: #fff;
+                    padding: 1px 5px;
+                    transform: translateX(-12px);
+                    border-radius: 100px;
+                    &:hover {
+                      background: rgba(240, 237, 237, 0.8);
+                    }
+                    i:nth-of-type(1) {
+                      margin-right: 3px;
+                    }
+                  }
+                  .num_love {
+                    .yumao {
+                      transition:
+                        color 0.2s ease,
+                        transform 0.2s ease;
+                    }
+                    .like-count {
+                      display: inline-flex;
+                      min-width: 2ch;
+                      gap: 0;
+                    }
+                    .like-digit {
+                      position: relative;
+                      display: inline-grid;
+                      width: 1ch;
+                      height: 1.25em;
+                      overflow: hidden;
+                      line-height: 1.25;
+                    }
+                    .like-count-value {
+                      display: block;
+                      grid-area: 1 / 1;
+                    }
+                    .like-count-enter-active,
+                    .like-count-leave-active,
+                    .like-count-down-enter-active,
+                    .like-count-down-leave-active {
+                      transition:
+                        transform 0.28s ease,
+                        opacity 0.28s ease;
+                    }
+                    .like-count-leave-active,
+                    .like-count-down-leave-active {
+                      position: absolute;
+                      inset: 0;
+                    }
+                    .like-count-enter-from {
+                      opacity: 0;
+                      transform: translateY(100%);
+                    }
+                    .like-count-leave-to {
+                      opacity: 0;
+                      transform: translateY(-100%);
+                    }
+                    .like-count-down-enter-from {
+                      opacity: 0;
+                      transform: translateY(-100%);
+                    }
+                    .like-count-down-leave-to {
+                      opacity: 0;
+                      transform: translateY(100%);
+                    }
+                    &.is-liked {
+                      color: #e8455c;
+
+                      .like-count {
+                        color: #e8455c;
+                      }
+                      .yumao {
+                        color: #e8455c;
+                      }
+                    }
+                    &:active .yumao {
+                      transform: translateY(1.5px) scale(0.86);
+                    }
+                    .like-icon-enter-active,
+                    .like-icon-leave-active {
+                      transition:
+                        opacity 0.18s ease,
+                        transform 0.18s ease;
+                    }
+                    .like-icon-enter-from {
+                      opacity: 0;
+                      transform: translateY(3px) scale(0.72);
+                    }
+                    .like-icon-leave-to {
+                      opacity: 0;
+                      transform: translateY(-3px) scale(0.72);
+                    }
+                  }
+                  .yumao {
+                    font-size: 25px;
+                  }
+                  .num_love .yumao {
+                    transform: translateY(1.5px);
+                    font-size: 24px;
+                  }
+                }
+              }
+            }
+          }
+          > div.item:nth-last-of-type(1) {
+            border-bottom: 1px solid transparent;
+          }
+        }
+        .item_bottom {
+          display: grid;
+          height: 0;
+          place-items: center;
+          overflow: hidden;
+          opacity: 0;
+          pointer-events: none;
+          transition:
+            height 0.28s ease,
+            opacity 0.2s ease;
+
+          &.is-visible {
+            height: 58px;
+            opacity: 1;
           }
 
-          p:last-child {
-            color: rgba(22, 63, 49, 0.72);
-            font-size: 15px;
-            line-height: 1.65;
+          p {
+            width: 34px;
+            height: 34px;
+            margin: 0;
+            color: #717174;
+            font-size: 27px;
+            line-height: 34px;
+            text-align: center;
+            transform-origin: center;
+            animation: home-loading-spin 0.85s linear infinite;
+            animation-play-state: paused;
+          }
+
+          &.is-visible p {
+            animation-play-state: running;
           }
         }
       }
+    }
+  }
 
-      > .r {
+  #send_article_mask {
+    position: fixed;
+    z-index: 1100;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    color: #171717;
+
+    .bg {
+      position: absolute;
+      inset: 0;
+      background: rgba(8, 8, 10, 0.68);
+      backdrop-filter: blur(2px);
+    }
+
+    .send-article-main {
+      position: relative;
+      z-index: 1;
+      box-sizing: border-box;
+      width: min(92vw, 620px);
+      max-height: 90dvh;
+      overflow-y: auto;
+      border: 1px solid #dedee2;
+      border-radius: 18px;
+      background: #fff;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.3);
+
+      header {
         position: relative;
-        display: flex;
-        flex: 0 0 520px;
-        width: 240px;
-        height: 350px;
-        padding: 52px;
-        overflow: hidden;
-        box-sizing: border-box;
-        flex-direction: column;
-        justify-content: flex-end;
-        border: 1px solid rgba(137, 245, 190, 0.18);
-        border-radius: 28px;
-        color: #f5fff9;
-        cursor: pointer;
-        background:
-          radial-gradient(
-            ellipse 49% 80% at 85% 1%,
-            rgba(85, 218, 151, 0.53),
-            transparent 67%
-          ),
-          radial-gradient(
-            ellipse 45% 54% at 8% 94%,
-            rgba(15, 87, 59, 0.84),
-            transparent 73%
-          ),
-          linear-gradient(135deg, #087044, #075b3e 48%, #0a8050);
-        box-shadow:
-          inset 0 1px rgba(239, 255, 246, 0.26),
-          0 28px 64px rgba(20, 101, 69, 0.2);
-        isolation: isolate;
+        align-items: center;
+        justify-content: center;
+        min-height: 58px;
+        padding: 0 18px;
+        border-bottom: 1px solid #e5e5e8;
 
-        &::before,
-        &::after {
+        strong {
+          font-size: 17px;
+        }
+
+        button {
+          width: max-content;
+          padding: 8px 0;
+          border: 0;
+          color: inherit;
+          background: transparent;
+          cursor: pointer;
+        }
+
+        .send-cancel {
           position: absolute;
-          z-index: 0;
-          content: "";
+          right: 18px;
+
+          &:hover,
+          &:focus-visible {
+            outline: none;
+          }
+        }
+      }
+    }
+
+    .send-article-body {
+      gap: 14px;
+      // min-height: 220px;
+      padding: 22px 24px 12px;
+
+      > img {
+        flex: 0 0 42px;
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        object-fit: cover;
+      }
+    }
+
+    .send-editor {
+      flex: 1;
+      min-width: 0;
+
+      > strong {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 16px;
+      }
+
+      .send-content {
+        display: block;
+        box-sizing: border-box;
+        width: 100%;
+        min-height: 24px;
+        padding: 0;
+        border: 0;
+        outline: 0;
+        color: #171717;
+        background: transparent;
+        font: inherit;
+        font-size: 17px;
+        line-height: 24px;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+
+        &:empty::before {
+          content: attr(data-placeholder);
+          color: #9a9aa0;
+          pointer-events: none;
+        }
+      }
+    }
+
+    .send-images {
+      gap: 10px;
+      margin: 10px 0 12px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      user-select: none;
+      cursor: grab;
+      border-radius: 10px;
+
+      &::-webkit-scrollbar {
+        display: none;
+      }
+
+      &:active {
+        cursor: grabbing;
+      }
+
+      figure {
+        position: relative;
+        flex: 0 0 auto;
+        width: fit-content;
+        max-width: 100%;
+        margin: 0;
+
+        img {
+          display: block;
+          width: auto;
+          max-width: 100%;
+          height: auto;
+          max-height: 294px;
+          border-radius: 12px;
           pointer-events: none;
         }
 
-        &::before {
-          inset: -70%;
-          opacity: 0.92;
-          filter: blur(5px);
-          background: repeating-radial-gradient(
-            ellipse at 55% 51%,
-            transparent 0 7%,
-            rgba(205, 255, 227, 0.24) 7.5% 8.2%,
-            transparent 8.8% 13%
-          );
-          mix-blend-mode: screen;
-          transform: rotate(-18deg) scale(1.35);
-          will-change: transform;
-          animation: card-water-rings 12s ease-in-out infinite alternate;
-        }
-
-        &::after {
-          right: -18%;
-          bottom: -44%;
-          width: 124%;
-          height: 82%;
-          border-radius: 48% 52% 36% 64% / 57% 38% 62% 43%;
-          opacity: 0.7;
-          filter: blur(13px);
-          background:
-            radial-gradient(
-              ellipse at 55% 25%,
-              rgba(186, 255, 218, 0.64),
-              transparent 31%
-            ),
-            radial-gradient(
-              ellipse at 39% 52%,
-              rgba(15, 79, 54, 0.86),
-              transparent 56%
-            );
-          mix-blend-mode: soft-light;
-          animation: card-water-flow 14s ease-in-out infinite alternate;
-          will-change: transform;
-        }
-
-        p {
-          position: relative;
-          z-index: 1;
-          margin: 0;
-        }
-
-        p:first-child {
-          margin-bottom: 30px;
-          font-size: 45px;
-          font-weight: 450;
-          letter-spacing: 0.015em;
-          line-height: 1.42;
-          text-shadow: 0 2px 22px rgba(0, 56, 36, 0.3);
-        }
-
-        p:last-child {
-          display: flex;
+        button {
+          position: absolute;
+          top: 10px;
+          right: 10px;
           align-items: center;
-          gap: 9px;
-          color: rgba(237, 255, 244, 0.84);
+          justify-content: center;
+          width: 30px;
+          height: 30px;
+          padding: 0;
+          border: 0;
+          border-radius: 50%;
+          color: #fff;
+          background: rgba(0, 0, 0, 0.72);
           font-size: 16px;
-
-          i {
-            font-style: normal;
-          }
-
-          .todo::after {
-            content: "↗";
-            display: inline-block;
-            font-family: inherit;
-            font-size: 20px;
-            transition: transform 0.25s ease;
-          }
+          line-height: 1;
+          cursor: pointer;
         }
+      }
+    }
 
-        &:hover .todo::after {
-          transform: translate3d(5px, -5px, 0);
-        }
+    .send-image-trigger {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      color: #68686d;
+      font-size: 23px;
+      cursor: pointer;
+
+      &:hover,
+      &:focus-within {
+        color: #171717;
+        background: #f1f1f3;
+      }
+
+      input {
+        display: none;
       }
     }
 
     footer {
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 24px 20px;
+
+      button {
+        min-width: 76px;
+        height: 40px;
+        border: 1px solid #d7d7db;
+        border-radius: 10px;
+        color: #fff;
+        background: #171717;
+        font-size: 16px;
+        font-weight: 700;
+        cursor: pointer;
+
+        &:disabled {
+          color: #aaaab0;
+          background: #f5f5f6;
+          cursor: not-allowed;
+        }
+      }
+
+      .form-error {
+        flex: 1;
+        margin: 0 12px;
+        color: #c92a2a;
+        font-size: 14px;
+        text-align: right;
+      }
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+  }
+
+  .send_article_preview-enter-active,
+  .send_article_preview-leave-active {
+    transition: opacity 0.22s ease;
+
+    .send-article-main {
+      transition: transform 0.22s ease;
+    }
+  }
+
+  .send_article_preview-enter-from,
+  .send_article_preview-leave-to {
+    opacity: 0;
+
+    .send-article-main {
+      transform: translateY(14px) scale(0.98);
+    }
+  }
+
+  #login_preview {
+    position: fixed;
+    z-index: 1100;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+
+    .bg {
+      position: absolute;
+      inset: 0;
+      background: rgba(8, 8, 10, 0.68);
+      backdrop-filter: blur(2px);
+    }
+
+    .login-main {
       position: relative;
       z-index: 1;
-      margin-top: 140px;
-      padding: 100px 0 34px;
-      opacity: 0;
-      filter: blur(14px);
-      transform: translate3d(100px, 120px, 0);
-      border-top: 1px solid rgba(27, 107, 76, 0.1);
-      background: rgba(250, 255, 252, 0.66);
-      box-shadow: inset 0 1px rgba(255, 255, 255, 0.82);
-      backdrop-filter: blur(22px);
-      transition:
-        opacity 1s ease,
-        filter 1s ease,
-        transform 1s cubic-bezier(0.2, 0.72, 0.22, 1);
+      display: grid;
+      gap: 14px;
+      box-sizing: border-box;
+      width: min(88vw, 360px);
+      padding: 24px;
+      border: 1px solid #dedee2;
+      border-radius: 16px;
+      background: #fff;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.3);
 
-      &.is-ready {
-        opacity: 1;
-        filter: blur(0);
-        transform: translate3d(0, 0, 0);
-      }
+      input {
+        box-sizing: border-box;
+        width: 100%;
+        height: 46px;
+        padding: 0 14px;
+        border: 1px solid #d7d7db;
+        border-radius: 10px;
+        outline: 0;
+        color: #171717;
+        background: #fff;
+        caret-color: #171717;
+        -webkit-text-fill-color: #171717;
+        font-size: 16px;
 
-      .footer-columns {
-        display: grid;
-        width: 80%;
-        margin: 0 auto;
-        grid-template-columns: 1.42fr repeat(4, 0.86fr);
-        gap: 72px;
-
-        > div {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 20px;
-
-          p,
-          a {
-            margin: 0;
-            color: rgba(20, 62, 48, 0.71);
-            font-size: 16px;
-            line-height: 1.35;
-            text-decoration: none;
-          }
-
-          > p:first-child {
-            margin-bottom: 15px;
-            color: #143e31;
-            font-size: 17px;
-            font-weight: 500;
-          }
-
-          a {
-            position: relative;
-            transition:
-              color 0.2s ease,
-              transform 0.2s ease;
-
-            &::after {
-              position: absolute;
-              bottom: -4px;
-              left: 0;
-              width: 0;
-              height: 1px;
-              background: #12a769;
-              content: "";
-              transition: width 0.2s ease;
-            }
-
-            &:hover {
-              color: #07975d;
-              transform: translateX(3px);
-
-              &::after {
-                width: 100%;
-              }
-            }
-          }
+        &::placeholder {
+          color: #8b8b91;
+          -webkit-text-fill-color: #8b8b91;
+          opacity: 1;
         }
 
-        .c_1 {
-          gap: 11px;
-
-          .footer-logo {
-            display: flex;
-            margin-bottom: 25px;
-            align-items: center;
-            gap: 9px;
-
-            img:first-child {
-              width: 34px;
-              height: 34px;
-              object-fit: contain;
-            }
-
-            img:last-child {
-              width: 118px;
-              height: auto;
-            }
-          }
-
-          .socials {
-            display: flex;
-            margin-top: 28px;
-            gap: 13px;
-
-            a {
-              display: grid;
-              width: 29px;
-              height: 29px;
-              place-items: center;
-              border: 1px solid rgba(22, 113, 78, 0.2);
-              border-radius: 50%;
-              color: rgba(20, 73, 55, 0.76);
-              font-size: 11px;
-              font-weight: 600;
-              transform: none;
-
-              &::after {
-                display: none;
-              }
-
-              &:hover {
-                border-color: #0aa064;
-                color: #fff;
-                background: #0aa064;
-                box-shadow: 0 6px 14px rgba(10, 160, 100, 0.2);
-                transform: translateY(-3px);
-              }
-            }
-          }
+        &:focus {
+          border-color: #171717;
+          box-shadow: 0 0 0 2px rgba(23, 23, 23, 0.1);
         }
       }
 
-      .copyright {
-        width: 80%;
-        margin: 84px auto 0;
-        padding-top: 28px;
-        border-top: 1px solid rgba(27, 107, 76, 0.1);
-        color: rgba(20, 62, 48, 0.58);
+      button {
+        height: 44px;
+        border: 0;
+        border-radius: 10px;
+        color: #fff;
+        background: #171717;
+        font-size: 16px;
+        font-weight: 700;
+        cursor: pointer;
+
+        &:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
+        }
+      }
+
+      .form-error {
+        margin: 0;
+        color: #c92a2a;
         font-size: 14px;
+        text-align: center;
       }
     }
   }
-  @keyframes notice-star-pulse {
-    from {
-      opacity: 0.58;
-      transform: translateY(1px) rotate(-8deg) scale(0.88);
-      text-shadow: 0 0 0 rgba(22, 169, 109, 0);
+
+  .login_preview-enter-active,
+  .login_preview-leave-active {
+    transition: opacity 0.22s ease;
+
+    .login-main {
+      transition: transform 0.22s ease;
     }
+  }
+
+  .login_preview-enter-from,
+  .login_preview-leave-to {
+    opacity: 0;
+
+    .login-main {
+      transform: translateY(14px) scale(0.98);
+    }
+  }
+
+  #look_img_mask {
+    position: fixed;
+    z-index: 1000;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    outline: none;
+    touch-action: none;
+
+    .bg {
+      position: absolute;
+      inset: 0;
+      background: rgba(8, 8, 10, 0.58);
+      cursor: zoom-out;
+    }
+
+    .preview-main {
+      --preview-height: min(94dvh, 1200px);
+      --preview-stage-height: calc(var(--preview-height) - 120px);
+
+      position: relative;
+      z-index: 1;
+      display: grid;
+      width: min(92vw, 1120px);
+      height: var(--preview-height);
+      box-sizing: border-box;
+      grid-template-rows: minmax(0, 1fr) auto;
+      gap: 20px;
+      padding-top: 54px;
+      pointer-events: none;
+    }
+
+    .preview-close {
+      position: absolute;
+      z-index: 2;
+      top: 0;
+      right: 0;
+      display: grid;
+      width: 44px;
+      height: 44px;
+      place-items: center;
+      border-radius: 50%;
+      color: #fff;
+      background: rgba(255, 255, 255, 0.12);
+      font-size: 26px;
+      font-style: normal;
+      cursor: pointer;
+      pointer-events: auto;
+      transition:
+        background-color 0.22s ease,
+        transform 0.22s ease;
+
+      &:hover,
+      &:focus-visible {
+        background: rgba(255, 255, 255, 0.24);
+        outline: none;
+        transform: rotate(90deg);
+      }
+    }
+
+    .preview-stage {
+      display: grid;
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+      place-items: center;
+      margin: 0;
+      overflow: hidden;
+    }
+
+    .preview-image {
+      display: block;
+      width: auto;
+      height: auto;
+      max-width: 100%;
+      max-height: var(--preview-stage-height);
+      object-fit: contain;
+      user-select: none;
+      will-change: transform;
+      pointer-events: auto;
+      transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+
+      &.is-portrait {
+        width: auto;
+        height: var(--preview-stage-height);
+        max-height: var(--preview-stage-height);
+      }
+
+      &.is-landscape {
+        width: auto;
+        height: auto;
+      }
+    }
+
+    .preview-tools {
+      flex: 0 0 auto;
+      justify-content: center;
+      gap: 12px;
+      margin: 0;
+      pointer-events: auto;
+    }
+
+    .preview-control {
+      display: grid;
+      width: 46px;
+      height: 46px;
+      place-items: center;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 50%;
+      color: #fff;
+      background: rgba(255, 255, 255, 0.1);
+      font-family: Arial, sans-serif;
+      font-size: 25px;
+      font-style: normal;
+      line-height: 1;
+      cursor: pointer;
+      user-select: none;
+      transition:
+        border-color 0.22s ease,
+        background-color 0.22s ease,
+        opacity 0.22s ease,
+        transform 0.22s ease;
+
+      &:hover,
+      &:focus-visible {
+        border-color: rgba(255, 255, 255, 0.36);
+        background: rgba(255, 255, 255, 0.22);
+        outline: none;
+        transform: translateY(-2px);
+      }
+
+      &:active {
+        transform: scale(0.92);
+      }
+
+      &.is-disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+      }
+    }
+  }
+
+  .image-preview-enter-active,
+  .image-preview-leave-active {
+    transition: opacity 0.25s ease;
+  }
+
+  .image-preview-enter-from,
+  .image-preview-leave-to {
+    opacity: 0;
+  }
+
+  @media screen and (max-width: 1280px) {
+    #pages_blog {
+      aside {
+        padding: 36px 10px;
+        .logo {
+          .logo-text {
+            letter-spacing: 1px;
+            font-size: 18px;
+          }
+        }
+        .nav-item {
+          width: 65%;
+        }
+      }
+    }
+  }
+  @media screen and (max-width: 1100px) {
+    #pages_blog {
+      aside {
+        padding: 36px 5px;
+        .logo {
+          .logo-line {
+            transform: translateX(-2px) scaleX(0.68);
+            transform-box: fill-box;
+            transform-origin: left center;
+          }
+        }
+
+        .nav-item {
+          width: 50%;
+        }
+      }
+    }
+  }
+  @media screen and (max-width: 768px) {
+    #pages_blog {
+      main {
+        top: 90px;
+        width: 90%;
+        height: auto;
+        margin-top: 0;
+        .head {
+          .l {
+            display: none;
+          }
+        }
+        .main {
+          padding-bottom: calc(40px + env(safe-area-inset-bottom));
+          border-radius: 8px;
+          border: 1px solid rgb(238, 231, 231);
+          .send_head {
+            display: none;
+          }
+          .item_box > div.item > div.item_content {
+            margin-bottom: 0;
+          }
+        }
+      }
+      aside {
+        display: none;
+      }
+    }
+
+    #look_img_mask {
+      .preview-main {
+        --preview-height: 92dvh;
+        --preview-stage-height: calc(var(--preview-height) - 110px);
+
+        width: 94vw;
+        padding-top: 48px;
+      }
+
+      .preview-close {
+        width: 40px;
+        height: 40px;
+      }
+
+      .preview-control {
+        width: 42px;
+        height: 42px;
+      }
+    }
+  }
+  @keyframes home-loading-spin {
     to {
-      opacity: 1;
-      transform: translateY(-2px) rotate(8deg) scale(1.18);
-      text-shadow: 0 0 12px rgba(22, 169, 109, 0.55);
+      transform: rotate(360deg);
     }
   }
 
-  @keyframes loading-ripple {
-    0% {
-      opacity: 0;
-      transform: scale(0.42);
-    }
-    28% {
-      opacity: 0.8;
-    }
-    100% {
-      opacity: 0;
-      transform: scale(1.28);
-    }
-  }
-
-  @keyframes loading-line-move {
-    0% {
-      transform: translateX(-52px);
-    }
-    50% {
-      transform: translateX(75px);
-    }
-    100% {
-      transform: translateX(150px);
-    }
-  }
-
-  @keyframes ripple-field-one {
-    from {
-      transform: translate3d(-3%, -2%, 0) scale(0.94) rotate(-2deg);
-    }
+  @keyframes logo-draw {
     to {
-      transform: translate3d(4%, 3%, 0) scale(1.08) rotate(3deg);
+      stroke-dashoffset: 0;
     }
   }
 
-  @keyframes ripple-field-two {
-    from {
-      transform: translate3d(4%, 2%, 0) scale(1.06) rotate(2deg);
-    }
+  @keyframes logo-fill {
     to {
-      transform: translate3d(-4%, -3%, 0) scale(0.92) rotate(-3deg);
+      fill: #111;
+      stroke-width: 0.45;
     }
   }
 
-  @keyframes page-ripple {
-    0% {
-      opacity: 0;
-      transform: scale(0.22);
-    }
-    14% {
-      opacity: 0.52;
-    }
-    72% {
-      opacity: 0.2;
-    }
-    100% {
-      opacity: 0;
-      transform: scale(2.6);
-    }
-  }
-
-  @keyframes card-water-rings {
-    from {
-      transform: rotate(-18deg) scale(1.35) translate3d(-2%, 2%, 0);
-    }
+  @keyframes logo-line-draw {
     to {
-      transform: rotate(-18deg) scale(1.48) translate3d(3%, -4%, 0);
+      stroke-dashoffset: 0;
     }
   }
 
-  @keyframes card-water-flow {
-    from {
-      transform: translate3d(-9%, 5%, 0) rotate(-9deg) scale(0.94);
-    }
-    to {
-      transform: translate3d(7%, -10%, 0) rotate(12deg) scale(1.14);
-    }
-  }
-</style>
+  @media (prefers-reduced-motion: reduce) {
+    #pages_blog aside .logo {
+      .logo-text {
+        fill: #111;
+        stroke-dashoffset: 0;
+        animation: none;
+      }
 
-<style lang="less">
-  html.index-scrollbar-hidden,
-  body.index-scrollbar-hidden {
-    scrollbar-width: none;
-  }
+      .logo-line {
+        stroke-dashoffset: 0;
+        animation: none;
+      }
+    }
 
-  html.index-scrollbar-hidden::-webkit-scrollbar,
-  body.index-scrollbar-hidden::-webkit-scrollbar {
-    display: none;
-    width: 0;
-    height: 0;
+    #pages_blog main .main .loading p,
+    #pages_blog main .main .item_bottom p {
+      animation: none;
+    }
+
+    #look_img_mask .preview-image,
+    #look_img_mask .preview-close,
+    #look_img_mask .preview-control,
+    .image-preview-enter-active,
+    .image-preview-leave-active {
+      transition: none;
+    }
   }
 </style>

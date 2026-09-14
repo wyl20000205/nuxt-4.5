@@ -1,16 +1,16 @@
 <template>
   <section class="blog-skeleton" aria-label="正在加载文章" aria-live="polite">
     <span class="sr-only">正在加载文章</span>
-    <article v-for="item in 5" :key="item" class="skeleton-item">
+    <article v-for="item in 5" :key="item" class="skeleton-item flex">
       <span class="skeleton-avatar"></span>
       <div class="skeleton-content">
-        <p class="skeleton-meta">
+        <p class="skeleton-meta flex">
           <span></span>
           <span></span>
         </p>
         <p class="skeleton-line is-long"></p>
         <p class="skeleton-line is-medium"></p>
-        <p class="skeleton-actions">
+        <p class="skeleton-actions flex">
           <span></span>
           <span></span>
         </p>
@@ -27,7 +27,6 @@
   }
 
   .skeleton-item {
-    display: flex;
     box-sizing: border-box;
     min-height: 178px;
     gap: 16px;
@@ -58,7 +57,6 @@
 
   .skeleton-meta,
   .skeleton-actions {
-    display: flex;
     gap: 12px;
     margin: 0;
   }

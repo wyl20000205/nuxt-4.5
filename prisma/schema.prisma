@@ -1,0 +1,32 @@
+// Prisma 根据这里的模型生成带类型提示的数据库客户端。
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+// 实际连接地址放在根目录 .env 的 DATABASE_URL 中。
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  password  String
+  createdAt DateTime @default(now()) @map("time") @db.Timestamptz(3)
+  posts     Post[]
+
+  @@map("t_user")
+}
+
+model Post {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  text      String?
+  images    Json     @default("[]") @map("img") @db.JsonB
+  createdAt DateTime @default(now()) @map("time") @db.Timestamptz(3)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("t_post")
+}

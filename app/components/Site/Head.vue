@@ -1,7 +1,7 @@
 <template>
-  <div id="components_site_head" class="mb">
-    <div>
-      <div class="left">
+  <div id="components_site_head" class="mb flex">
+    <div class="flex">
+      <div class="left flex">
         <button
           type="button"
           class="menu-trigger"
@@ -15,13 +15,13 @@
           <i class="i3"></i>
         </button>
       </div>
-      <div class="right"></div>
+      <div class="right flex"></div>
     </div>
   </div>
   <Transition name="t1" mode="out-in">
     <div id="navigation" v-show="navi_index">
       <div class="back" @click="toggle_navi"></div>
-      <div class="main" :class="{ open: panelOpen }">
+      <div class="main flex" :class="{ open: panelOpen }">
         <p
           class="logo"
           :class="{ 'is-drawn': logoAnimated }"
@@ -47,7 +47,7 @@
           v-for="v in item_nav"
           v-show="v.display"
           :key="v.text"
-          class="navigation_item mb-4"
+          class="navigation_item mb-4 flex"
           :class="{ active: activeNavText === v.text }"
           @click="select_navigation(v.text)"
         >
@@ -107,7 +107,6 @@
     box-sizing: border-box;
     width: 100%;
     height: 58px;
-    display: flex;
     justify-content: center;
     align-items: center;
     margin-bottom: 15px;
@@ -117,14 +116,12 @@
       width: 85%;
       max-width: 1680px;
       height: 100%;
-      display: flex;
       > div {
         height: 100%;
         width: 50%;
       }
       .left {
         position: relative;
-        display: flex;
         align-items: center;
         > div {
           position: absolute;
@@ -181,7 +178,6 @@
         }
       }
       .right {
-        display: flex;
         justify-content: flex-end;
         align-items: center;
         p {
@@ -194,7 +190,7 @@
   }
   #navigation {
     position: fixed;
-    z-index: 3;
+    z-index: 5;
     top: 0;
     width: 100vw;
     height: 100vh;
@@ -214,7 +210,6 @@
       z-index: 2;
       width: 180px;
       background: white;
-      display: flex;
       flex-direction: column;
       align-items: center;
       transform: translate3d(-100%, 0, 0);
@@ -232,7 +227,6 @@
 
       .navigation_item {
         position: relative;
-        display: flex;
         align-items: center;
         gap: 16px;
         box-sizing: border-box;

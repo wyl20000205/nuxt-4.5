@@ -29,3 +29,27 @@ ln -s /home/wyl/blog /root/wyl
 
 server的 /api 和 /routes 技术能力相似 区别 api 是
 server/routes 就是用于创建不带 /api 前缀的服务端路由。
+
+## Nuxt 部署与图片踩坑
+
+`NuxtImg` 默认通过 IPX 处理远程图片，服务端会先请求源站，再生成 `/_ipx/` 图片。源站响应慢或域名未加入 `image.domains` 时，页面可能长时间留白。项目将远程域名加入 `nuxt.config.ts`，远程帖子图片指定 `weserv` provider，本地图片继续交给 IPX；`loading="lazy"` 仅提供浏览器懒加载提示，文章列表还需配合 `IntersectionObserver` 和 `v-if`，才能避免视口外图片提前渲染。
+
+## PostgreSQL
+
+项目按照 Prisma 当前的 Nuxt 指南，使用 `@prisma/client`、`@prisma/adapter-pg` 和 `server/utils/prisma.ts`。`@prisma/nuxt` 已由官方标记为弃用，新项目无需安装。
+
+数据库连接信息位于 `nuxt.config.ts` 的私有 `runtimeConfig.database` 中，Prisma CLI 和 Nuxt 服务端共同使用：
+
+```ts
+const database = {
+  url: "postgresql://root:Mm123456789%40@8.219.63.91:5432/blog",
+}
+```
+
+首次部署按顺序执行：
+
+```sh
+# 生成 Prisma Client，并在 PostgreSQL 创建 t_user、t_post。
+bun run db:generate
+bun run db:migrate
+```

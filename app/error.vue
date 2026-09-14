@@ -28,7 +28,7 @@
         <pre>{{ pageError.stack }}</pre>
       </details>
 
-      <div class="error-actions">
+      <div class="error-actions flex">
         <button type="button" class="primary" @click="goHome">返回首页</button>
         <button type="button" class="secondary" @click="retry">重新加载</button>
       </div>
@@ -209,7 +209,6 @@
   }
 
   .error-actions {
-    display: flex;
     flex-wrap: wrap;
     gap: 12px;
     margin-top: 32px;
