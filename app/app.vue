@@ -9,7 +9,7 @@
 <script setup lang="ts">
   const route = useRoute();
   useHead({
-    title: "江苏久引-门户首页",
+    title: "华落博客-门户首页",
     link: [
       {
         key: "favicon",
@@ -18,7 +18,6 @@
         sizes: "32x32",
         href: "/favicon.ico?v=20260816-2",
       },
-      { rel: "stylesheet", href: "/css/public.css" },
       {
         key: "aside-iconfont",
         rel: "stylesheet",

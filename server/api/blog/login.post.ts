@@ -1,26 +1,22 @@
-import { createError, readBody, setCookie } from "h3"
+import { createError, readBody, setCookie } from "h3";
 import {
   createBlogSession,
   hashBlogPassword,
   verifyBlogPasswordHash,
-} from "../../utils/blogAuth"
-import { getPrisma } from "../../utils/prisma"
+} from "../../utils/blogAuth";
+import { userSql } from "../../utils/user/sql";
 
 export default defineEventHandler(async (event) => {
-  const prisma = getPrisma(event)
-  const body = await readBody<{ password?: unknown }>(event)
+  const body = await readBody<{ password?: unknown }>(event);
   if (typeof body?.password !== "string" || body.password.length > 256) {
-    throw createError({ statusCode: 400, message: "请输入有效密钥" })
+    throw createError({ statusCode: 400, message: "请输入有效密钥" });
   }
 
-  const passwordHash = hashBlogPassword(body.password)
-  const user = await prisma.user.findFirst({
-    where: { password: passwordHash },
-    select: { id: true, password: true },
-  })
+  const passwordHash = hashBlogPassword(body.password);
+  const user = await userSql.findFirst({ password: passwordHash });
 
   if (!user || !verifyBlogPasswordHash(passwordHash, user.password)) {
-    throw createError({ statusCode: 401, message: "密钥错误" })
+    throw createError({ statusCode: 401, message: "密钥错误" });
   }
 
   setCookie(event, "blog_session", createBlogSession(user.id, user.password), {
@@ -29,7 +25,7 @@ export default defineEventHandler(async (event) => {
     secure: process.env.NODE_ENV === "production",
     path: "/",
     maxAge: 60 * 60 * 24 * 7,
-  })
+  });
 
-  return { ok: true, userId: user.id }
-})
+  return { ok: true, userId: user.id };
+});

@@ -27,6 +27,8 @@ export const useIndexStore = defineStore("storeIndex", {
   state() {
     return {
       token_index: "",
+      sessionUserId: null as number | null,
+      sessionRevision: 0,
       search_show: 0,
       customize_show: 0,
       show_section: 0,
@@ -38,16 +40,62 @@ export const useIndexStore = defineStore("storeIndex", {
         user_notice: { content: "" },
         business_notice: { content: "" },
       },
-      item_nav: [
-        { icon: "icon-a-042_fujin", text: "首页", display: 1 },
-        { icon: "icon-a-042_faxian", text: "发帖", display: 1 },
-        { icon: "icon-a-042_wode-09", text: "登录", display: 1 },
-        { icon: "icon-a-042_sousuo", text: "搜索", display: 0 },
-        { icon: "icon-a-042_tianjia", text: "笔记", display: 1 },
-      ],
     };
   },
+  getters: {
+    item_nav: (state) => [
+      { icon: "icon-a-042_fujin", text: "首页", display: 1 },
+      { icon: "icon-a-042_faxian", text: "发帖", display: 1 },
+      { icon: "icon-a-042_wode-09", text: state.sessionUserId ? "后台" : "登录", display: 1 },
+      { icon: "icon-a-042_biaoqing", text: "注册", display: 1 },
+      { icon: "icon-a-042_sousuo", text: "搜索", display: 0 },
+      { icon: "icon-a-042_tianjia", text: "笔记", display: 1 },
+    ],
+  },
   actions: {
+    formatPostTime(value: number) {
+      const timestamp = value < 1_000_000_000_000 ? value * 1000 : value;
+      const date = new Date(timestamp);
+      const now = new Date();
+
+      if (Number.isNaN(date.getTime())) return "";
+
+      const elapsed = now.getTime() - timestamp;
+      if (elapsed >= 0 && elapsed < 60_000) return "刚刚";
+      if (elapsed >= 0 && elapsed < 3_600_000)
+        return `${Math.floor(elapsed / 60_000)}分钟前`;
+      if (elapsed >= 0 && elapsed < 86_400_000)
+        return `${Math.floor(elapsed / 3_600_000)}小时前`;
+
+      const todayStart = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate(),
+      ).getTime();
+      const postStart = new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate(),
+      ).getTime();
+      const dayDistance = Math.round((todayStart - postStart) / 86_400_000);
+      if (dayDistance === 1) return "昨天";
+      if (dayDistance > 1 && dayDistance < 7) return `${dayDistance}天前`;
+      return `${date.getMonth() + 1}月${date.getDate()}日`;
+    },
+    setSession(userId: number | null) {
+      this.sessionUserId = userId;
+      this.sessionRevision++;
+    },
+    async refreshSession() {
+      const revision = this.sessionRevision;
+      try {
+        const { userId } = await $fetch<{ userId: number }>("/api/blog/session");
+        if (this.sessionRevision === revision) this.setSession(userId);
+      } catch {
+        if (this.sessionRevision === revision) this.setSession(null);
+      }
+      return this.sessionUserId;
+    },
     handle_inp(event: Event): string {
       const input = event.target as HTMLInputElement | null;
       if (!input) return "";

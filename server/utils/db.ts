@@ -1,52 +1,32 @@
-import { mkdirSync } from "node:fs"
-import { dirname, resolve } from "node:path"
-import { DatabaseSync } from "node:sqlite"
-import { hashBlogPassword } from "./blogAuth"
+import { Pool } from "pg";
 
-let database: DatabaseSync | undefined
+const globalDatabase = globalThis as typeof globalThis & {
+  blogDatabase?: Pool;
+};
 
-export function getDatabase() {
-  if (database) return database
-
-  const filename = resolve(process.cwd(), "blog.sqlite")
-  mkdirSync(dirname(filename), { recursive: true })
-
-  database = new DatabaseSync(filename)
-  database.exec(`
-    PRAGMA foreign_keys = ON;
-
-    CREATE TABLE IF NOT EXISTS t_user (
-      id INTEGER PRIMARY KEY,
-      password TEXT NOT NULL,
-      time DATE NOT NULL DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS t_post (
-      id INTEGER PRIMARY KEY,
-      user_id INTEGER REFERENCES t_user(id),
-      text TEXT,
-      img TEXT,
-      time DATE NOT NULL DEFAULT CURRENT_TIMESTAMP
-    );
-  `)
-
-  const postColumns = database.prepare("PRAGMA table_info(t_post)").all() as {
-    name: string
-  }[]
-  if (!postColumns.some(({ name }) => name === "user_id")) {
-    database.exec(
-      "ALTER TABLE t_post ADD COLUMN user_id INTEGER REFERENCES t_user(id)",
-    )
+// 开发环境热更新会重复加载模块，全局保存连接池可以避免重复连接数据库。
+export function db(): Pool {
+  if (globalDatabase.blogDatabase) {
+    return globalDatabase.blogDatabase;
   }
 
-  const password = hashBlogPassword("Mm123456789@")
-  database
-    .prepare(`
-      INSERT INTO t_user (password, time)
-      SELECT ?, CURRENT_TIMESTAMP
-      WHERE NOT EXISTS (SELECT 1 FROM t_user)
-    `)
-    .run(password)
+  const { database } = useRuntimeConfig();
 
-  return database
+  if (!database.url) {
+    throw new Error("[PostgreSQL] 数据库连接地址未配置");
+  }
+
+  const pool = new Pool({
+    connectionString: database.url,
+    connectionTimeoutMillis: 10000,
+    options: "-c timezone=Asia/Shanghai",
+  });
+
+  pool.on("error", (error) => {
+    console.error("[PostgreSQL] 连接池异常:", error);
+  });
+
+  globalDatabase.blogDatabase = pool;
+
+  return pool;
 }

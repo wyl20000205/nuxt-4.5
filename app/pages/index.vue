@@ -102,6 +102,7 @@
         >
           <p class="yumao icon-jiazai"></p>
         </div>
+        <p v-if="like_error" class="like-error" role="alert">{{ like_error }}</p>
         <SkeletonBlog v-if="posts_loading" />
         <div v-else class="item_box">
           <div
@@ -127,7 +128,7 @@
                   loading="lazy"
                   @load="post_avatar_loaded[post.id] = true"
                   @error="post_avatar_loaded[post.id] = false"
-                  quality="40"
+                  quality="10"
                   format="webp"
                 />
                 <i
@@ -139,20 +140,20 @@
                 <div class="h flex">
                   <p class="h_l">
                     <em class="name">{{ post.author }}</em
-                    ><em class="time">{{ formatPostTime(post.time) }}</em>
+                    ><em class="time">{{ indexStore.formatPostTime(post.time) }}</em>
                   </p>
-                  <p class="h_r" aria-label="更多操作">
-                    <em
+                  <div class="h_r">
+                    <button
                       class="yumao icon-gengduo"
-                      role="button"
-                      tabindex="0"
+                      type="button"
+                      aria-label="更多操作"
                       aria-haspopup="menu"
-                    ></em>
+                    ></button>
                     <span class="more-menu" role="menu">
                       <em role="menuitem" tabindex="0">不感兴趣</em>
                       <em role="menuitem" tabindex="0">举报</em>
                     </span>
-                  </p>
+                  </div>
                 </div>
                 <pre class="m">{{ post.content }}</pre>
                 <picture
@@ -174,14 +175,14 @@
                       :alt="`${post.author} 的图片 ${index + 1}`"
                       :provider="isRemoteImage(image) ? 'weserv' : undefined"
                       :format="isRemoteImage(image) ? 'webp' : undefined"
-                      quality="70"
+                      quality="40"
                       loading="lazy"
                       densities="1x"
                       decoding="async"
                       draggable="false"
                       @click="
                         openImagePreview(
-                          image,
+                          $event,
                           `${post.author} 的图片 ${index + 1}`,
                         )
                       "
@@ -189,14 +190,14 @@
                   </span>
                 </picture>
                 <div class="b flex">
-                  <em
+                  <button
                     class="num_love flex"
                     :class="{ 'is-liked': isPostLiked(post.id) }"
-                    role="button"
-                    tabindex="0"
+                    type="button"
+                    :aria-label="post.id < 0 ? '本地帖子不可点赞' : !indexStore.sessionUserId ? '登录后可点赞' : isPostLiked(post.id) ? '取消点赞' : '点赞'"
                     :aria-pressed="isPostLiked(post.id)"
+                    :disabled="post.id < 0 || !indexStore.sessionUserId || like_pending_ids.has(post.id)"
                     @click.stop="handlePostLike(post)"
-                    @keydown.enter.stop="handlePostLike(post)"
                   >
                     <Transition name="like-icon" mode="out-in">
                       <i
@@ -230,7 +231,7 @@
                         </Transition>
                       </span>
                     </span>
-                  </em>
+                  </button>
                   <em class="num_reply flex"
                     ><i class="yumao icon-a-042_xiaoxi"></i
                     ><i>{{ post.replies }}</i></em
@@ -249,7 +250,7 @@
         </div>
       </div>
     </main>
-    <Transition name="image-preview">
+    <Transition name="image_preview">
       <div
         v-show="preview_open"
         id="look_img_mask"
@@ -422,7 +423,7 @@
             </p>
             <button
               type="button"
-              @click="todo"
+              @click="send_post_todo"
               :disabled="
                 send_article_pending ||
                 (!send_article_text.trim() && !send_article_images.length)
@@ -455,16 +456,69 @@
             autocomplete="current-password"
             @keyup.enter="login_todo"
           />
-          <button
-            type="button"
-            :disabled="login_pending || !login_key"
-            @click="login_todo"
-          >
-            {{ login_pending ? "验证中" : "验证" }}
-          </button>
-          <p v-if="login_error" class="form-error" role="alert">
-            {{ login_error }}
-          </p>
+          <div class="auth-actions">
+            <p v-if="login_error" class="form-error" role="alert">
+              {{ login_error }}
+            </p>
+            <button
+              type="button"
+              :disabled="login_pending || !login_key"
+              @click="login_todo"
+            >
+              {{ login_pending ? "验证中" : "验证" }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+    <Transition name="register_preview">
+      <div
+        v-if="register_open"
+        id="register_preview"
+        role="dialog"
+        aria-modal="true"
+        aria-label="注册密钥"
+        tabindex="-1"
+        @keydown.esc="closeRegister"
+      >
+        <div class="bg" @click="closeRegister"></div>
+        <div class="main register-main">
+          <input
+            ref="register_key_input"
+            v-model="register_key"
+            type="password"
+            minlength="8"
+            maxlength="256"
+            placeholder="请设置密钥"
+            aria-label="请设置密钥"
+            autocomplete="new-password"
+            @keyup.enter="register_doto"
+          />
+          <div class="auth-actions">
+            <p
+              class="form-error"
+              :class="{
+                'is-hint': !register_error,
+                'is-success': register_success,
+              }"
+              :role="
+                register_success
+                  ? 'status'
+                  : register_error
+                    ? 'alert'
+                    : undefined
+              "
+            >
+              {{ register_error || "密钥长度为 8 至 256 个字符" }}
+            </p>
+            <button
+              type="button"
+              :disabled="register_pending || register_key.length < 8"
+              @click="register_doto"
+            >
+              {{ register_pending ? "注册中" : "注册" }}
+            </button>
+          </div>
         </div>
       </div>
     </Transition>
@@ -491,11 +545,14 @@
     text: string;
     img_list: string[];
     time: number;
+    likeCount: number;
+    liked: boolean;
   };
 
   type PreviewOrientation = "portrait" | "landscape" | "square";
 
-  const { item_nav } = storeToRefs(useIndexStore());
+  const indexStore = useIndexStore();
+  const { item_nav } = storeToRefs(indexStore);
 
   type SendArticleImage = {
     name: string;
@@ -508,56 +565,10 @@
   const post_avatar_loaded = reactive<Record<number, boolean>>({});
   const visible_post_ids = reactive(new Set<number>());
   const liked_post_ids = ref<Set<number>>(new Set());
+  const like_pending_ids = reactive(new Set<number>());
+  const like_error = ref("");
   const like_transition_direction = reactive<Record<number, "up" | "down">>({});
-  const post_items = ref<PostItem[]>([
-    {
-      id: 2,
-      author: "Mori",
-      avatar: "https://q1.qlogo.cn/g?b=qq&nk=10000&s=640",
-      time: 1786938480000,
-      content: "周末去逛了旧书店，带回一本很喜欢的散文集。",
-      likes: 46,
-      replies: 9,
-    },
-    {
-      id: 3,
-      author: "Sora",
-      avatar: "https://q1.qlogo.cn/g?b=qq&nk=123456&s=640",
-      time: 1786935600000,
-      content:
-        "正在尝试把每日计划缩减到三件真正重要的事。\n完成感比忙碌更重要。",
-      likes: 72,
-      replies: 18,
-    },
-    {
-      id: 4,
-      author: "Nina",
-      avatar: "https://q1.qlogo.cn/g?b=qq&nk=888888&s=640",
-      time: 1786928400000,
-      content: "分享一首适合通勤路上循环的歌，节奏轻快，心情也会亮一点。",
-      likes: 35,
-      replies: 4,
-    },
-    {
-      id: 5,
-      author: "阿岚",
-      avatar: "https://q1.qlogo.cn/g?b=qq&nk=5201314&s=640",
-      time: 1786885200000,
-      content: "雨天在窗边喝咖啡，看着街道慢慢安静下来。",
-      likes: 109,
-      replies: 23,
-    },
-    {
-      id: 6,
-      author: "Kiki",
-      avatar: "https://q1.qlogo.cn/g?b=qq&nk=246810&s=640",
-      time: 1786876920000,
-      content:
-        "今天把房间收拾了一遍。\n桌面干净以后，思路也清楚了不少。\n晚上想做一道简单的番茄鸡蛋面。",
-      likes: 18,
-      replies: 3,
-    },
-  ]);
+  const post_items = ref<PostItem[]>([]);
   const select_item = ref("首页");
   const posts_loading = ref(true);
   const home_loading = ref(false);
@@ -577,6 +588,12 @@
   const login_key_input = ref<HTMLInputElement | null>(null);
   const login_pending = ref(false);
   const login_error = ref("");
+  const register_open = ref(false);
+  const register_key = ref("");
+  const register_key_input = ref<HTMLInputElement | null>(null);
+  const register_pending = ref(false);
+  const register_error = ref("");
+  const register_success = ref(false);
   const preview_dialog = ref<HTMLElement | null>(null);
   const preview_open = ref(false);
   const preview_src = ref("");
@@ -589,56 +606,50 @@
   let bottomReached = false;
   let postImageObserver: IntersectionObserver | undefined;
 
-  const formatPostTime = (value: number) => {
-    const timestamp = value < 1_000_000_000_000 ? value * 1000 : value;
-    const date = new Date(timestamp);
-    const now = new Date();
-
-    if (Number.isNaN(date.getTime())) return "";
-
-    const elapsed = now.getTime() - timestamp;
-    if (elapsed >= 0 && elapsed < 60_000) return "刚刚";
-    if (elapsed >= 0 && elapsed < 3_600_000)
-      return `${Math.floor(elapsed / 60_000)}分钟前`;
-    if (elapsed >= 0 && elapsed < 86_400_000)
-      return `${Math.floor(elapsed / 3_600_000)}小时前`;
-
-    const todayStart = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-    ).getTime();
-    const postStart = new Date(
-      date.getFullYear(),
-      date.getMonth(),
-      date.getDate(),
-    ).getTime();
-    const dayDistance = Math.round((todayStart - postStart) / 86_400_000);
-    if (dayDistance === 1) return "昨天";
-    if (dayDistance > 1 && dayDistance < 7) return `${dayDistance}天前`;
-    return `${date.getMonth() + 1}月${date.getDate()}日`;
-  };
-
   const isRemoteImage = (image: string) => /^https?:\/\//i.test(image);
   const getPostImageSrc = (image: string) =>
     isRemoteImage(image) ? image : `/images/${image}`;
 
   const isPostLiked = (postId: number) => liked_post_ids.value.has(postId);
 
-  const handlePostLike = (post: PostItem) => {
+  const setPostLiked = (postId: number, liked: boolean) => {
     const nextLikedPostIds = new Set(liked_post_ids.value);
-
-    if (nextLikedPostIds.has(post.id)) {
-      nextLikedPostIds.delete(post.id);
-      post.likes = Math.max(0, post.likes - 1);
-      like_transition_direction[post.id] = "down";
-    } else {
-      nextLikedPostIds.add(post.id);
-      post.likes += 1;
-      like_transition_direction[post.id] = "up";
-    }
-
+    if (liked) nextLikedPostIds.add(postId);
+    else nextLikedPostIds.delete(postId);
     liked_post_ids.value = nextLikedPostIds;
+  };
+
+  const handlePostLike = async (post: PostItem) => {
+    if (post.id < 0 || !indexStore.sessionUserId || like_pending_ids.has(post.id)) return;
+    like_pending_ids.add(post.id);
+
+    const wasLiked = isPostLiked(post.id);
+    const oldCount = post.likes;
+    const nextLiked = !wasLiked;
+    like_error.value = "";
+    setPostLiked(post.id, nextLiked);
+    post.likes = Math.max(0, oldCount + (nextLiked ? 1 : -1));
+    like_transition_direction[post.id] = nextLiked ? "up" : "down";
+
+    try {
+      const state = await $fetch<{ liked: boolean; likeCount: number }>(
+        `/api/blog/post/${post.id}/like`,
+        { method: nextLiked ? "PUT" : "DELETE" },
+      );
+      setPostLiked(post.id, state.liked);
+      post.likes = state.likeCount;
+    } catch (error) {
+      setPostLiked(post.id, wasLiked);
+      post.likes = oldCount;
+      like_transition_direction[post.id] = wasLiked ? "up" : "down";
+      if ((error as { statusCode?: number }).statusCode === 401) {
+        indexStore.setSession(null);
+      } else {
+        like_error.value = "点赞操作失败，请重试";
+      }
+    } finally {
+      like_pending_ids.delete(post.id);
+    }
   };
 
   let active_gallery: HTMLElement | null = null;
@@ -649,17 +660,18 @@
   let gallery_animation_frame: number | undefined;
   let gallery_was_dragged = false;
 
-  const openImagePreview = async (image: string, alt: string) => {
+  const openImagePreview = async (event: MouseEvent, alt: string) => {
     if (gallery_was_dragged) {
       gallery_was_dragged = false;
       return;
     }
 
-    preview_src.value = getPostImageSrc(image);
+    const image = event.currentTarget as HTMLImageElement;
+    preview_src.value = image.currentSrc || image.src;
     preview_alt.value = alt;
     preview_rotation.value = 0;
     preview_scale.value = 1;
-    preview_orientation.value = "square";
+    handlePreviewImageLoad(event);
     preview_open.value = true;
     await nextTick();
     preview_dialog.value?.focus();
@@ -710,15 +722,56 @@
     login_pending.value = true;
     login_error.value = "";
     try {
-      await $fetch("/api/blog/login", {
+      const result = await $fetch<{ userId: number }>("/api/blog/login", {
         method: "POST",
         body: { password: login_key.value },
       });
+      indexStore.setSession(result.userId);
       closeLogin();
+      // await navigateTo(result.userId === 1 ? "/admin" : "/user");
     } catch {
       login_error.value = "密钥错误";
     } finally {
       login_pending.value = false;
+    }
+  };
+
+  const openRegister = async () => {
+    register_open.value = true;
+    await nextTick();
+    register_key_input.value?.focus();
+  };
+
+  const closeRegister = () => {
+    register_open.value = false;
+    register_key.value = "";
+    register_error.value = "";
+    register_success.value = false;
+  };
+
+  const register_doto = async () => {
+    if (register_key.value.length < 8 || register_pending.value) return;
+
+    register_pending.value = true;
+    register_error.value = "";
+    register_success.value = false;
+    try {
+      const result = await $fetch<{ userId: number }>("/api/blog/register", {
+        method: "POST",
+        body: { password: register_key.value },
+      });
+      indexStore.setSession(result.userId);
+      register_key.value = "";
+      register_error.value = "注册成功，已自动登录";
+      register_success.value = true;
+      setTimeout(() => {
+        closeRegister();
+      }, 2000);
+    } catch (error) {
+      register_error.value =
+        (error as { data?: { message?: string } }).data?.message || "注册失败";
+    } finally {
+      register_pending.value = false;
     }
   };
 
@@ -744,7 +797,7 @@
     if (image) URL.revokeObjectURL(image.url);
   };
 
-  const todo = async () => {
+  const send_post_todo = async () => {
     if (
       send_article_pending.value ||
       (!send_article_text.value.trim() && !send_article_images.value.length)
@@ -769,7 +822,7 @@
           time: number;
         };
       }>("/api/blog/post", { method: "POST", body });
-      const postId = -post.id;
+      const postId = post.id;
       post_items.value.unshift({
         id: postId,
         author: "Hualuo",
@@ -886,20 +939,23 @@
   };
 
   onMounted(async () => {
+    void indexStore.refreshSession();
     try {
       const { posts } = await $fetch<{ posts: StoredPost[] }>("/api/blog/post");
-      post_items.value.unshift(
+      post_items.value = [
         ...posts.map((post) => ({
-          id: -post.id,
+          id: post.id,
           author: "Hualuo",
           avatar: qq_img,
           time: post.time,
           content: post.text,
           img_list: post.img_list,
-          likes: 0,
+          likes: post.likeCount,
           replies: 0,
         })),
-      );
+        ...post_items.value,
+      ];
+      liked_post_ids.value = new Set(posts.filter((post) => post.liked).map((post) => post.id));
       posts_loading.value = false;
     } catch (error) {
       console.error("加载帖子失败", error);
@@ -969,6 +1025,18 @@
       openLogin();
       return;
     }
+    if (text === "后台") {
+      indexStore
+        .refreshSession()
+        .then((userId) =>
+          userId ? navigateTo(userId === 1 ? "/admin" : "/user") : openLogin(),
+        );
+      return;
+    }
+    if (text === "注册") {
+      openRegister();
+      return;
+    }
 
     select_item.value = text;
     if (text === "首页") {
@@ -1002,25 +1070,6 @@
 
     if (!reachedBottom) bottomReached = false;
   };
-
-  useHead({
-    title: "华落博客-门户首页",
-    link: [
-      {
-        key: "favicon",
-        rel: "icon",
-        type: "image/x-icon",
-        sizes: "32x32",
-        href: "/favicon.ico?v=20260816-2",
-      },
-      { rel: "stylesheet", href: "/css/public.css" },
-      {
-        key: "aside-iconfont",
-        rel: "stylesheet",
-        href: "https://at.alicdn.com/t/c/font_5223671_xx31qirzc7r.css?spm=a313x.manage_type_myprojects.i1.9.6a243a81NbbaTu&file=font_5223671_xx31qirzc7r.css",
-      },
-    ],
-  });
 </script>
 
 <style scoped lang="less">
@@ -1028,6 +1077,11 @@
     position: relative;
     min-height: 100vh;
     color: #fff;
+
+    .like-error {
+      margin: 12px 24px;
+      color: #c92a2a;
+    }
 
     aside {
       position: fixed;
@@ -1491,6 +1545,12 @@
             margin: 0 auto;
             border-bottom: 1px solid rgb(195, 190, 190);
 
+            &:hover,
+            &:focus-within {
+              position: relative;
+              z-index: 2;
+            }
+
             &:hover > div.item_content .r .h .h_r,
             &:focus-within > div.item_content .r .h .h_r {
               visibility: visible;
@@ -1579,6 +1639,7 @@
                   }
                   .h_r {
                     position: relative;
+                    z-index: 2;
                     flex: 0 0 32px;
                     margin: 0;
                     text-align: center;
@@ -1590,9 +1651,16 @@
                       opacity 0.2s ease,
                       transform 0.2s ease;
                     .icon-gengduo {
+                      display: grid;
+                      width: 32px;
+                      height: 32px;
+                      place-items: center;
+                      padding: 0;
+                      border: 0;
                       color: #777;
+                      background: transparent;
                       font-size: 22px;
-                      line-height: 24px;
+                      line-height: 32px;
                       cursor: pointer;
 
                       &::before {
@@ -1603,11 +1671,12 @@
                       &:hover,
                       &:focus-visible {
                         color: #111;
-                        outline: none;
                       }
-                    }
-                    em {
-                      margin-left: 10px;
+
+                      &:focus-visible {
+                        outline: 2px solid #111;
+                        outline-offset: 2px;
+                      }
                     }
 
                     .more-menu {
@@ -1652,6 +1721,13 @@
                         pointer-events: auto;
                         transform: translateY(0);
                       }
+                    }
+
+                    @media (hover: none) {
+                      visibility: visible;
+                      opacity: 1;
+                      pointer-events: auto;
+                      transform: none;
                     }
                   }
                 }
@@ -1698,7 +1774,8 @@
                 }
                 .b {
                   align-items: center;
-                  em {
+                  .num_love,
+                  .num_reply {
                     align-items: center;
                     cursor: pointer;
                     transition: all 0.3s;
@@ -1715,6 +1792,9 @@
                     }
                   }
                   .num_love {
+                    border: 0;
+                    color: inherit;
+                    font: inherit;
                     .yumao {
                       transition:
                         color 0.2s ease,
@@ -1774,6 +1854,15 @@
                       }
                       .yumao {
                         color: #e8455c;
+                      }
+                    }
+                    &:disabled {
+                      // background: #f4f4f5;
+                      color: #a1a1aa;
+                      cursor: not-allowed;
+                      .like-count,
+                      .yumao {
+                        color: inherit;
                       }
                     }
                     &:active .yumao {
@@ -2095,7 +2184,8 @@
     }
   }
 
-  #login_preview {
+  #login_preview,
+  #register_preview {
     position: fixed;
     z-index: 1100;
     inset: 0;
@@ -2110,7 +2200,8 @@
       backdrop-filter: blur(2px);
     }
 
-    .login-main {
+    .login-main,
+    .register-main {
       position: relative;
       z-index: 1;
       display: grid;
@@ -2150,6 +2241,7 @@
       }
 
       button {
+        flex: 0 0 88px;
         height: 44px;
         border: 0;
         border-radius: 10px;
@@ -2166,28 +2258,51 @@
       }
 
       .form-error {
+        flex: 1;
         margin: 0;
         color: #c92a2a;
         font-size: 14px;
-        text-align: center;
+        text-align: left;
+
+        &.is-hint {
+          color: #77777d;
+        }
+
+        &.is-success {
+          color: #218739;
+        }
+      }
+
+      .auth-actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 12px;
+        min-height: 44px;
       }
     }
   }
 
   .login_preview-enter-active,
-  .login_preview-leave-active {
+  .login_preview-leave-active,
+  .register_preview-enter-active,
+  .register_preview-leave-active {
     transition: opacity 0.22s ease;
 
-    .login-main {
+    .login-main,
+    .register-main {
       transition: transform 0.22s ease;
     }
   }
 
   .login_preview-enter-from,
-  .login_preview-leave-to {
+  .login_preview-leave-to,
+  .register_preview-enter-from,
+  .register_preview-leave-to {
     opacity: 0;
 
-    .login-main {
+    .login-main,
+    .register-main {
       transform: translateY(14px) scale(0.98);
     }
   }
@@ -2335,13 +2450,13 @@
     }
   }
 
-  .image-preview-enter-active,
-  .image-preview-leave-active {
+  .image_preview-enter-active,
+  .image_preview-leave-active {
     transition: opacity 0.25s ease;
   }
 
-  .image-preview-enter-from,
-  .image-preview-leave-to {
+  .image_preview-enter-from,
+  .image_preview-leave-to {
     opacity: 0;
   }
 
@@ -2475,8 +2590,8 @@
     #look_img_mask .preview-image,
     #look_img_mask .preview-close,
     #look_img_mask .preview-control,
-    .image-preview-enter-active,
-    .image-preview-leave-active {
+    .image_preview-enter-active,
+    .image_preview-leave-active {
       transition: none;
     }
   }

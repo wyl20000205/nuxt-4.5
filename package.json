@@ -5,22 +5,16 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "build": "prisma generate && nuxt build",
+    "build": "nuxt build",
     "dev": "nuxt dev",
-    "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate deploy",
-    "db:migrate:dev": "prisma migrate dev",
-    "db:studio": "prisma studio",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "prisma generate && nuxt prepare"
+    "postinstall": "nuxt prepare"
   },
   "dependencies": {
     "@nuxt/image": "2.1.0",
     "@nuxtjs/tailwindcss": "6.14.0",
     "@pinia/nuxt": "1.0.2",
-    "@prisma/adapter-pg": "7.10.0",
-    "@prisma/client": "7.10.0",
     "less": "^4.9.0",
     "nuxt": "^4.5.1",
     "pg": "^8.23.0",
@@ -31,8 +25,7 @@
   },
   "devDependencies": {
     "@types/pg": "^8.23.1",
-    "@vite-pwa/nuxt": "^1.1.1",
-    "prisma": "7.10.0"
+    "@vite-pwa/nuxt": "^1.1.1"
   },
   "workspaces": ["."]
 }

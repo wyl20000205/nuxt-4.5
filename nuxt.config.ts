@@ -1,12 +1,21 @@
+//  app: {
+//     cdnURL: "https://static.877888.asia/",
+//     buildAssetsDir: "/_nuxt/", 仅代理_nuxt
+//   },
+
 import { defineNuxtConfig } from "nuxt/config";
 
 export const database = {
-  url: "postgresql://root:Mm123456789%40@8.219.63.91:5432/blog",
+  
 };
 
 export default defineNuxtConfig({
   compatibilityDate: "2030-01-01",
   devtools: { enabled: true },
+  app: {
+    cdnURL: "https://wyl-blog.oss-cn-guangzhou.aliyuncs.com/",
+  },
+  css: ["~/assets/css/public.css"],
   runtimeConfig: {
     database,
   },

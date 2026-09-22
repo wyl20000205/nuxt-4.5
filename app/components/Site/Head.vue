@@ -15,7 +15,7 @@
           <i class="i3"></i>
         </button>
       </div>
-      <div class="right flex"></div>
+      <div class="right flex"><strong v-if="title">{{ title }}</strong></div>
     </div>
   </div>
   <Transition name="t1" mode="out-in">
@@ -65,8 +65,14 @@
 <script setup>
   import { throttle, useIndexStore } from "~/stores/index";
 
+  const props = defineProps({
+    items: { type: Array, default: undefined },
+    title: { type: String, default: "" },
+  });
   const emit = defineEmits(["select"]);
-  const { item_nav } = storeToRefs(useIndexStore());
+  const { item_nav: default_item_nav } = storeToRefs(useIndexStore());
+  const item_nav = computed(() => props.items ?? default_item_nav.value);
+  const title = computed(() => props.title);
   let navi_index = ref(0);
   let panelOpen = ref(false);
   let activeNavText = ref("首页");
@@ -180,6 +186,8 @@
       .right {
         justify-content: flex-end;
         align-items: center;
+        color: #171717;
+        font-size: 16px;
         p {
           cursor: pointer;
           margin-left: 40px;

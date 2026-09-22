@@ -1,8 +1,11 @@
-import { getPrisma } from "../../utils/prisma"
+import { indexSql } from "../../utils/index/sql"
+import { getBlogUser } from "../../utils/blogSession"
+import { setHeader } from "h3"
 
 export default defineEventHandler(async (event) => {
-  const prisma = getPrisma(event)
-  const rows = await prisma.post.findMany({ orderBy: { id: "desc" } })
+  setHeader(event, "Cache-Control", "private, no-store")
+  const viewer = await getBlogUser(event)
+  const rows = await indexSql.findMany(viewer?.id ?? null)
 
   return {
     posts: rows.map((post) => {
@@ -16,6 +19,8 @@ export default defineEventHandler(async (event) => {
         text: post.text || "",
         img_list: imgList,
         time: post.createdAt.getTime(),
+        likeCount: post.likeCount,
+        liked: post.liked,
       }
     }),
   }

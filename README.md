@@ -36,20 +36,18 @@ server/routes 就是用于创建不带 /api 前缀的服务端路由。
 
 ## PostgreSQL
 
-项目按照 Prisma 当前的 Nuxt 指南，使用 `@prisma/client`、`@prisma/adapter-pg` 和 `server/utils/prisma.ts`。`@prisma/nuxt` 已由官方标记为弃用，新项目无需安装。
+项目通过 `pg` 连接 PostgreSQL，连接池位于 `server/utils/db.ts`，业务查询分别放在 `server/utils/index/sql.ts`、`server/utils/user/sql.ts` 和 `server/utils/admin/sql.ts`。
 
-数据库连接信息位于 `nuxt.config.ts` 的私有 `runtimeConfig.database` 中，Prisma CLI 和 Nuxt 服务端共同使用：
+数据库连接信息位于 `nuxt.config.ts` 的私有 `runtimeConfig.database` 中：
 
 ```ts
 const database = {
-  url: "postgresql://root:Mm123456789%40@8.219.63.91:5432/blog",
+  url: "postgresql://用户名:密码@数据库地址:5432/blog",
 }
 ```
 
-首次部署按顺序执行：
+首次部署执行建表 SQL：
 
 ```sh
-# 生成 Prisma Client，并在 PostgreSQL 创建 t_user、t_post。
-bun run db:generate
-bun run db:migrate
+psql "$DATABASE_URL" -f server/utils/schema.sql
 ```

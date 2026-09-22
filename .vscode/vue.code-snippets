@@ -4,7 +4,7 @@
     "prefix": "vue",
     "body": [
       "<template>",
-      "  <div class=\"$1\">",
+      "  <div id=\"$1\">",
       "    $2",
       "  </div>",
       "</template>",
