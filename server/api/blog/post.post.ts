@@ -89,10 +89,15 @@ export default defineEventHandler(async (event) => {
     return {
       post: {
         id: result.id,
+        uuid: result.uuid,
+        username: user.username,
         user_id: user.id,
         text,
         img_list: imageNames,
         time,
+        likeCount: 0,
+        commentCount: 0,
+        liked: false,
       },
     };
   } catch (error) {

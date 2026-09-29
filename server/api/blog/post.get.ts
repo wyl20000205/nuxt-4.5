@@ -15,11 +15,14 @@ export default defineEventHandler(async (event) => {
 
       return {
         id: post.id,
+        uuid: post.uuid,
+        username: post.username,
         user_id: post.userId,
         text: post.text || "",
         img_list: imgList,
         time: post.createdAt.getTime(),
         likeCount: post.likeCount,
+        commentCount: post.commentCount,
         liked: post.liked,
       }
     }),

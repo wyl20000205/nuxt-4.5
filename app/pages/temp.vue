@@ -1,493 +1,422 @@
 <template>
-  <main class="temp_page">
-    <section class="panel video_panel">
-      <h2>视频生成</h2>
-      <div class="controls">
-        <input
-          v-model="apiKey"
-          type="password"
-          autocomplete="off"
-          placeholder="Eng-Link API Key"
-        />
-        <label>
-          时长
-          <select v-model="duration" :disabled="videoPending">
-            <option :value="5">5 秒</option>
-            <option :value="10">10 秒</option>
-          </select>
-        </label>
-        <label>
-          分辨率
-          <select v-model="resolution" :disabled="videoPending">
-            <option value="720P">720p</option>
-            <option value="1080P">1080p</option>
-          </select>
-        </label>
-        <button type="button" :disabled="videoPending" @click="test_model()">
-          {{ videoPending ? "生成中..." : "生成视频" }}
-        </button>
-        <button type="button" :disabled="videoPending" @click="test_model(true)">
-          一键测试全部组合
-        </button>
-        <button type="button" :disabled="videoPending" @click="query_video()">
-          查询全部任务
-        </button>
-      </div>
-      <p class="status">一键测试当前模型的四种组合，共提交 4 个生成任务。</p>
-      <p v-if="videoStatus" class="status" role="status">{{ videoStatus }}</p>
-      <p v-if="storageError" class="status" role="alert">{{ storageError }}</p>
-      <h3>任务记录（{{ videoTests.length }}）</h3>
-      <article v-for="(test, index) in videoTests" :key="index" class="video_test">
-        <h3>{{ test.duration ? `${test.duration} 秒` : "时长未知" }} · {{ test.resolution || "分辨率未知" }}</h3>
-        <p>模型：{{ test.model || "未知" }}</p>
-        <p v-if="test.createdAt">提交时间：{{ new Date(test.createdAt).toLocaleString() }}</p>
-        <p>状态：{{ test.status }}</p>
-        <p v-if="test.taskId">任务 ID：{{ test.taskId }}</p>
-        <button type="button" :disabled="videoPending || !test.taskId" @click="query_video(test)">
-          查询此任务
-        </button>
-        <video v-if="test.videoUrl" :src="test.videoUrl" controls></video>
-      </article>
-    </section>
+  <main class="image-page">
+    <section class="generator-card">
+      <header>
+        <p class="eyebrow">IMAGE STUDIO</p>
+        <h1>AI 图片生成</h1>
+        <p class="subtitle">输入提示词，也可以添加参考图片进行创作。</p>
+      </header>
 
-    <!-- <section id="chat_test" class="panel">
-      <h2>DeepSeek 对话</h2>
-      <div class="chat_main">
-        <p v-if="!chatMessages.length" class="chat_empty">输入消息开始对话</p>
-        <p
-          v-for="(message, index) in chatMessages"
-          :key="index"
-          :class="message.role"
-        >
-          <strong>{{ message.role === "user" ? "我" : "DeepSeek" }}：</strong>
-          {{ message.content }}
-        </p>
+      <div class="mode-row">
+        <span class="mode">{{ sourceImages.length ? "图生图" : "文生图" }}</span>
+        <span class="model">{{ model }}</span>
       </div>
-      <form @submit.prevent="chat_test">
-        <input v-model="chatInput" type="text" placeholder="输入消息" />
-        <button :disabled="chatPending">
-          {{ chatPending ? "回复中..." : "发送" }}
+
+      <form @submit.prevent="generate">
+        <label class="field">
+          <span>参考图片 <small>可选</small></span>
+          <div class="source-row">
+            <label class="file-picker">
+              {{ uploadedImages.length ? `已选择 ${uploadedImages.length} 张` : "上传图片" }}
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                @change="selectImages"
+              />
+            </label>
+            <span class="or">或</span>
+            <textarea
+              v-model="imageInput"
+              class="url-input"
+              rows="2"
+              placeholder="粘贴图片 URL，每行一个"
+            />
+          </div>
+          <div v-if="sourceImages.length" class="reference-previews">
+            <div
+              v-for="(image, index) in sourceImages"
+              :key="`${image}-${index}`"
+              class="reference-preview"
+            >
+              <img :src="image" :alt="`参考图片 ${index + 1}`" />
+            </div>
+          </div>
+        </label>
+
+        <label class="field">
+          <span>提示词</span>
+          <textarea
+            v-model="prompt"
+            required
+            rows="6"
+            placeholder="描述你想生成的画面、风格、光线与构图……"
+          />
+        </label>
+
+        <label class="field">
+          <span>水印</span>
+          <select v-model="watermark">
+            <option :value="true">true</option>
+            <option :value="false">false</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>图片尺寸</span>
+          <select v-model="size">
+            <option value="1K">1K</option>
+            <option value="1.5K">1.5K</option>
+            <option value="2K">2K</option>
+          </select>
+        </label>
+
+        <button class="submit-button" :disabled="pending">
+          {{ pending ? "生成中…" : "生成图片" }}
         </button>
       </form>
-    </section> -->
 
-    <!-- <button @click="a">发送</button> -->
+      <p v-if="error" class="error" role="alert">{{ error }}</p>
+
+      <figure v-if="imageUrl" class="result">
+        <img :src="imageUrl" alt="生成的图片" />
+        <figcaption>生成结果</figcaption>
+      </figure>
+
+      <details v-else-if="result" class="response">
+        <summary>查看响应数据</summary>
+        <pre>{{ result }}</pre>
+      </details>
+    </section>
   </main>
 </template>
 
 <script setup lang="ts">
-  let a = async () => {
-    let aa = await $fetch("httpswlclri.js", {
-      method: "get",
-    });
-    console.log(aa);
+  type ImageResult = {
+    data?: Array<{ url?: string; b64_json?: string }>;
   };
 
-  type VideoGenerationResponse = {
-    output?: {
-      task_id?: string;
-      task_status?: string;
-    };
-  };
-
-  type VideoTaskResponse = {
-    status?: string;
-    content?: { video_url?: string };
-  };
-
-  type ChatMessage = {
-    role: "user" | "assistant";
-    content: string;
-  };
-
-  type ChatResponse = {
-    choices?: Array<{ message?: { content?: string } }>;
-  };
-
-  const name = ref("yumao");
+  const model = "dola-seedream-5-0-pro-260628";
+  const prompt = ref("");
   const pending = ref(false);
-  const apiKey = ref("OAhFtlJka89td0iyzgTxVybozywTnG5ki2i6YxeiY7SZQejA"); // 企业 818
-  // const apiKey = ref("sk-mbITQzslP8x6eINcKCQ4eYID1JTB0TThU4oU2SH6fiwPCtOy"); //用户key 817
-  const model_name = ref<String>("doubao-seedance-2-5-cloud");
-  const videoPending = ref(false);
-  const videoStatus = ref("");
-  const duration = ref(5);
-  const resolution = ref("720P");
-  type VideoTest = {
-    model: string;
-    createdAt: string;
-    duration: number | null;
-    resolution: string;
-    taskId: string;
-    status: string;
-    videoUrl: string;
-  };
-  const videoTests = ref<VideoTest[]>([]);
-  const storageError = ref("");
-  const chatInput = ref("");
-  const chatPending = ref(false);
-  const chatMessages = ref<ChatMessage[]>([]);
-  const result = ref<unknown>();
+  const watermark = ref(true);
+  const size = ref("2K");
+  const error = ref("");
+  const result = ref<ImageResult>();
+  const imageInput = ref("");
+  const uploadedImages = ref<string[]>([]);
+  const sourceImages = computed(() => [
+    ...uploadedImages.value,
+    ...imageInput.value
+      .split(/\r?\n/)
+      .map((url) => url.trim())
+      .filter(Boolean),
+  ]);
+  const imageUrl = computed(() => {
+    const image = result.value?.data?.[0];
+    return (
+      image?.url ||
+      (image?.b64_json ? `data:image/png;base64,${image.b64_json}` : "")
+    );
+  });
 
-  function save_tasks() {
+  async function selectImages(event: Event) {
+    const files = Array.from((event.target as HTMLInputElement).files ?? []);
+
     try {
-      localStorage.setItem("videoTasks", JSON.stringify(videoTests.value));
-      storageError.value = "";
+      uploadedImages.value = await Promise.all(
+        files.map(
+          (file) =>
+            new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(String(reader.result));
+              reader.onerror = () => reject(reader.error);
+              reader.readAsDataURL(file);
+            }),
+        ),
+      );
     } catch {
-      storageError.value = "任务记录保存失败，请保留当前页面并记录任务 ID";
+      error.value = "图片读取失败";
     }
   }
 
-  onMounted(() => {
-    try {
-      const saved = localStorage.getItem("videoTasks");
-      if (saved) {
-        const tasks: unknown = JSON.parse(saved);
-        if (!Array.isArray(tasks) || !tasks.every((task) =>
-          task && typeof task.model === "string" &&
-          typeof task.createdAt === "string" &&
-          (task.duration === null || task.duration === 5 || task.duration === 10) &&
-          typeof task.resolution === "string" && typeof task.taskId === "string" &&
-          typeof task.status === "string" && typeof task.videoUrl === "string"
-        )) throw new Error("Invalid task records");
-        videoTests.value = tasks;
-      } else {
-        const taskId = localStorage.getItem("task");
-        if (taskId) {
-          videoTests.value.push({
-            model: "", createdAt: "", duration: null, resolution: "",
-            taskId, status: "待查询", videoUrl: "",
-          });
-          save_tasks();
-        }
-      }
-    } catch {
-      storageError.value = "任务记录读取失败，原始记录仍保留在浏览器中";
-    }
-  });
-
-  async function createUser() {
+  async function generate() {
     pending.value = true;
+    error.value = "";
+    result.value = undefined;
+
     try {
-      result.value = await $fetch("/rust/user/users", {
+      result.value = await $fetch("/api/temp", {
         method: "POST",
-        body: { name: name.value, age: 32, active: true },
+        body: {
+          model,
+          prompt: prompt.value,
+          response_format: "url",
+          size: size.value,
+          stream: false,
+          watermark: watermark.value,
+          ...(sourceImages.value.length && {
+            image:
+              sourceImages.value.length === 1
+                ? sourceImages.value[0]
+                : sourceImages.value,
+          }),
+        },
       });
+    } catch (cause) {
+      error.value = cause instanceof Error ? cause.message : String(cause);
     } finally {
       pending.value = false;
     }
   }
-
-  async function test_model(all = false) {
-    if (videoPending.value) return;
-
-    const key = apiKey.value.trim();
-    if (!key) {
-      videoStatus.value = "请输入 Eng-Link API Key";
-      return;
-    }
-
-    const options = all
-      ? [5, 10].flatMap((duration) =>
-          ["720P", "1080P"].map((resolution) => ({ duration, resolution })),
-        )
-      : [{ duration: duration.value, resolution: resolution.value }];
-    if (storageError.value) return;
-    videoTests.value.unshift(...options.map((option) => ({
-      ...option,
-      model: String(model_name.value),
-      createdAt: new Date().toISOString(),
-      taskId: "",
-      status: "等待提交",
-      videoUrl: "",
-    })));
-    const batch = videoTests.value.slice(0, options.length);
-    videoStatus.value = "正在提交生成任务";
-    videoPending.value = true;
-    try {
-      for (const test of batch) {
-        await create_video(test, key);
-      }
-      const submitted = batch.filter((test) => test.taskId).length;
-      videoStatus.value = `已提交 ${submitted}/${batch.length} 个任务，点击查询视频查看结果`;
-    } finally {
-      videoPending.value = false;
-    }
-  }
-
-  async function create_video(test: (typeof videoTests.value)[number], key: string) {
-    test.status = "提交中";
-    try {
-      const response = await $fetch<VideoGenerationResponse>(
-        "/api/eng-link/v1/videos/generations",
-        {
-          method: "POST",
-          headers: { Authorization: `Bearer ${key}` },
-          body: {
-            model: test.model,
-            content: [
-              { type: "text", text: "让小猫跳起来" },
-              {
-                type: "image_url",
-                image_url: {
-                  url: "https://img0.baidu.com/it/u=1607203819,3864225772&fm=253&fmt=auto&app=120&f=JPEG?w=500&h=889",
-                },
-                role: "reference_image",
-              },
-            ],
-            ratio: "16:9",
-            duration: test.duration,
-            resolution: test.resolution,
-            generate_audio: false,
-            watermark: false,
-          },
-        },
-      );
-
-      const taskId = response.output?.task_id;
-      test.taskId = taskId ?? "";
-      test.status = taskId
-        ? response.output?.task_status ?? "已提交"
-        : "提交失败：接口未返回任务 ID";
-      result.value = response;
-    } catch (error) {
-      test.status = `提交失败：${error instanceof Error ? error.message : String(error)}`;
-    } finally {
-      save_tasks();
-    }
-  }
-
-  async function query_video(selected?: VideoTest) {
-    if (videoPending.value) return;
-
-    const key = apiKey.value.trim();
-    const tasks = (selected ? [selected] : videoTests.value).filter((test) => test.taskId);
-    if (!key || !tasks.length) {
-      videoStatus.value = "请先输入 API Key 并生成视频";
-      return;
-    }
-
-    videoPending.value = true;
-    try {
-      for (const test of tasks) {
-        try {
-          const response = await $fetch<VideoTaskResponse>(
-            `/api/eng-link/v1/videos/generations/task/${test.taskId}`,
-            { headers: { Authorization: `Bearer ${key}` } },
-          );
-          test.status = response.status ?? "unknown";
-          test.videoUrl = response.content?.video_url ?? "";
-          result.value = response;
-        } catch (error) {
-          test.status = `查询失败：${error instanceof Error ? error.message : String(error)}`;
-        } finally {
-          save_tasks();
-        }
-      }
-      videoStatus.value = "查询完成，生成中的任务可稍后再次查询";
-    } finally {
-      videoPending.value = false;
-    }
-  }
-
-  async function chat_test() {
-    if (chatPending.value) return;
-
-    const key = apiKey.value.trim();
-    const content = chatInput.value.trim();
-    if (!key || !content) {
-      result.value = "请输入 API Key 和消息";
-      return;
-    }
-
-    chatMessages.value.push({ role: "user", content });
-    chatInput.value = "";
-    chatPending.value = true;
-    try {
-      const response = await $fetch<ChatResponse>(
-        "/api/eng-link/v1/chat/completions",
-        {
-          method: "POST",
-          headers: { Authorization: `Bearer ${key}` },
-          body: {
-            model: "deepseek-v4-pro",
-            messages: chatMessages.value,
-          },
-        },
-      );
-
-      const reply = response.choices?.[0]?.message?.content;
-      if (reply) chatMessages.value.push({ role: "assistant", content: reply });
-      result.value = response;
-    } catch (error) {
-      result.value = error;
-    } finally {
-      chatPending.value = false;
-    }
-  }
 </script>
 
-<style lang="less" scoped>
-  .temp_page {
+<style scoped lang="less">
+  .image-page {
     min-height: 100vh;
-    padding: 40px 20px;
-    box-sizing: border-box;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 24px;
-    color: #1f2937;
-    background: #f3f6fb;
+    padding: 64px 20px;
+    color: #172033;
+    background:
+      radial-gradient(circle at 15% 10%, #e9e5ff 0, transparent 32%),
+      radial-gradient(circle at 85% 90%, #dff4ff 0, transparent 30%),
+      #f5f7fb;
   }
 
-  .panel {
-    padding: 24px;
-    border: 1px solid #e5e7eb;
-    border-radius: 16px;
-    background: #fff;
-    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
-
-    h2 {
-      margin: 0 0 20px;
-      font-size: 22px;
-    }
+  .generator-card {
+    width: min(760px, 100%);
+    margin: 0 auto;
+    padding: 36px;
+    border: 1px solid rgba(103, 88, 190, 0.12);
+    border-radius: 24px;
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 24px 70px rgba(53, 49, 95, 0.12);
+    backdrop-filter: blur(16px);
   }
 
-  .controls {
-    flex-wrap: wrap;
-    align-items: center;
-
-    label {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    select {
-      padding: 10px;
-      border: 1px solid #d1d5db;
-      border-radius: 10px;
-      font: inherit;
-    }
+  .eyebrow {
+    margin-bottom: 8px;
+    color: #7058d5;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
   }
 
-  .video_test {
-    margin-top: 16px;
-    padding-top: 12px;
-    border-top: 1px solid #e5e7eb;
-    overflow-wrap: anywhere;
+  h1 {
+    font-size: clamp(28px, 5vw, 40px);
+    line-height: 1.2;
   }
 
-  .controls,
-  form {
+  .subtitle {
+    margin-top: 10px;
+    color: #6f7687;
+    line-height: 1.7;
+  }
+
+  .mode-row {
     display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 28px 0 22px;
+  }
+
+  .mode {
+    padding: 6px 12px;
+    border-radius: 999px;
+    color: #5c43c2;
+    font-size: 13px;
+    font-weight: 700;
+    background: #eeeaff;
+  }
+
+  .model {
+    overflow: hidden;
+    color: #9298a6;
+    font: 12px/1.5 monospace;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  form,
+  .field {
+    display: grid;
+    gap: 12px;
+  }
+
+  form {
+    gap: 22px;
+  }
+
+  .field > span {
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .field small {
+    color: #969cac;
+    font-weight: 400;
+  }
+
+  .source-row {
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .file-picker,
+  .url-input,
+  select,
+  textarea {
+    border: 1px solid #dde1eb;
+    border-radius: 12px;
+    background: #fff;
+  }
+
+  .file-picker {
+    padding: 11px 16px;
+    color: #5c43c2;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .file-picker input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+
+  .or {
+    color: #a2a7b4;
+    font-size: 13px;
+  }
+
+  .url-input,
+  select,
+  textarea {
+    width: 100%;
+    padding: 12px 14px;
+    color: #172033;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .reference-preview {
+    width: 120px;
+    aspect-ratio: 1;
+    padding: 5px;
+    border: 1px solid #dde1eb;
+    border-radius: 14px;
+    background: #fff;
+  }
+
+  .reference-previews {
+    display: flex;
+    flex-wrap: wrap;
     gap: 10px;
   }
 
-  input {
-    min-width: 0;
-    flex: 1;
-    padding: 11px 14px;
-    border: 1px solid #d1d5db;
-    border-radius: 10px;
-    outline: none;
-    font: inherit;
-
-    &:focus {
-      border-color: #4f46e5;
-      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.14);
-    }
-  }
-
-  button {
-    padding: 11px 16px;
-    border: 0;
-    border-radius: 10px;
-    color: #fff;
-    background: #4f46e5;
-    cursor: pointer;
-    font: inherit;
-    white-space: nowrap;
-
-    &:hover:not(:disabled) {
-      background: #4338ca;
-    }
-
-    &:disabled {
-      cursor: not-allowed;
-      opacity: 0.55;
-    }
-  }
-
-  .status {
-    margin: 16px 0;
-    color: #4f46e5;
-  }
-
-  video {
+  .reference-preview img {
     width: 100%;
-    max-height: 520px;
-    margin-top: 16px;
+    height: 100%;
+    border-radius: 9px;
+    object-fit: cover;
+  }
+
+  textarea {
+    box-sizing: border-box;
+    resize: vertical;
+    line-height: 1.65;
+  }
+
+  .url-input:focus,
+  select:focus,
+  textarea:focus {
+    border-color: #8069df;
+    box-shadow: 0 0 0 4px rgba(112, 88, 213, 0.1);
+  }
+
+  .submit-button {
+    min-height: 48px;
+    border: 0;
+    border-radius: 13px;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #8069df, #6045c9);
+    box-shadow: 0 12px 24px rgba(96, 69, 201, 0.24);
+    cursor: pointer;
+  }
+
+  .submit-button:disabled {
+    opacity: 0.55;
+    cursor: wait;
+  }
+
+  .error {
+    margin-top: 20px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    color: #b4233a;
+    background: #fff0f2;
+  }
+
+  .result,
+  .response {
+    margin-top: 28px;
+  }
+
+  .result img {
+    display: block;
+    width: 100%;
+    max-height: 720px;
+    border-radius: 16px;
+    object-fit: contain;
+    background: #f0f2f7;
+  }
+
+  .result figcaption {
+    margin-top: 10px;
+    color: #7d8494;
+    font-size: 13px;
+    text-align: center;
+  }
+
+  .response {
+    color: #697083;
+  }
+
+  .response pre {
+    margin-top: 10px;
+    padding: 14px;
+    overflow: auto;
     border-radius: 12px;
-    background: #111827;
+    color: #dbe2f3;
+    background: #202536;
+    user-select: text;
   }
 
-  #chat_test {
-    min-height: 560px;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .chat_main {
-    min-height: 360px;
-    max-height: 520px;
-    margin-bottom: 16px;
-    padding: 16px;
-    overflow-y: auto;
-    flex: 1;
-    border-radius: 12px;
-    background: #f8fafc;
-
-    p {
-      width: fit-content;
-      max-width: 85%;
-      margin: 0 0 12px;
-      padding: 10px 14px;
-      border-radius: 12px;
-      line-height: 1.6;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-      background: #e5e7eb;
+  @media (max-width: 600px) {
+    .image-page {
+      padding: 24px 12px;
     }
 
-    .user {
-      margin-left: auto;
-      color: #fff;
-      background: #4f46e5;
+    .generator-card {
+      padding: 24px 18px;
+      border-radius: 18px;
     }
 
-    .chat_empty {
-      margin: 120px auto 0;
-      color: #94a3b8;
-      background: transparent;
-    }
-  }
-
-  @media (max-width: 860px) {
-    .temp_page {
-      padding: 20px 12px;
+    .source-row {
       grid-template-columns: 1fr;
     }
 
-    .controls {
-      flex-wrap: wrap;
-
-      input {
-        flex-basis: 100%;
-      }
+    .file-picker {
+      text-align: center;
     }
 
-    .panel {
-      padding: 18px;
+    .or {
+      display: none;
     }
   }
 </style>

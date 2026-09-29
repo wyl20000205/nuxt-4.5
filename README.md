@@ -26,7 +26,6 @@ unzip .output.zip -d .output
 ln -s /home/wyl/blog /root/wyl
 改变端口 PORT=3002 pm2 start .output/server/index.mjs
 
-
 server的 /api 和 /routes 技术能力相似 区别 api 是
 server/routes 就是用于创建不带 /api 前缀的服务端路由。
 
@@ -43,11 +42,5 @@ server/routes 就是用于创建不带 /api 前缀的服务端路由。
 ```ts
 const database = {
   url: "postgresql://用户名:密码@数据库地址:5432/blog",
-}
-```
-
-首次部署执行建表 SQL：
-
-```sh
-psql "$DATABASE_URL" -f server/utils/schema.sql
+};
 ```

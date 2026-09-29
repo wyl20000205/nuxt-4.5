@@ -29,6 +29,7 @@ export const useIndexStore = defineStore("storeIndex", {
       token_index: "",
       sessionUserId: null as number | null,
       sessionRevision: 0,
+      homeScrollTop: 0,
       search_show: 0,
       customize_show: 0,
       show_section: 0,
@@ -89,7 +90,9 @@ export const useIndexStore = defineStore("storeIndex", {
     async refreshSession() {
       const revision = this.sessionRevision;
       try {
-        const { userId } = await $fetch<{ userId: number }>("/api/blog/session");
+        const { userId } = await $fetch<{ userId: number | null }>(
+          "/api/blog/session",
+        );
         if (this.sessionRevision === revision) this.setSession(userId);
       } catch {
         if (this.sessionRevision === revision) this.setSession(null);

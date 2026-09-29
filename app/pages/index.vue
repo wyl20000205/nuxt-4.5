@@ -32,38 +32,6 @@
     <main class="flex">
       <div class="head pc flex">
         <div class="l flex"><p>最新文章</p></div>
-        <!-- <div class="r flex">
-          <p class="inp flex" :class="{ 'is-open': search_open }">
-            <button
-              class="search-trigger"
-              type="button"
-              :aria-label="search_open ? '搜索文章' : '展开搜索'"
-              :aria-expanded="search_open"
-              @click="handleSearch"
-            >
-              <i class="yumao icon-a-042_sousuo" aria-hidden="true"></i>
-            </button>
-            <input
-              ref="search_input"
-              type="text"
-              maxlength="12"
-              placeholder="搜索文章"
-              aria-label="搜索文章"
-              @keydown.esc="closeSearch"
-              @input="removeSpaces"
-              class="text-xl"
-            />
-            <button
-              class="close-trigger"
-              type="button"
-              aria-label="关闭搜索"
-              :tabindex="search_open ? 0 : -1"
-              @click="closeSearch"
-            >
-              <i class="yumao icon-close" aria-hidden="true"></i>
-            </button>
-          </p>
-        </div> -->
       </div>
       <div
         ref="post_scroll"
@@ -102,7 +70,9 @@
         >
           <p class="yumao icon-jiazai"></p>
         </div>
-        <p v-if="like_error" class="like-error" role="alert">{{ like_error }}</p>
+        <p v-if="like_error" class="like-error" role="alert">
+          {{ like_error }}
+        </p>
         <SkeletonBlog v-if="posts_loading" />
         <div v-else class="item_box">
           <div
@@ -140,7 +110,9 @@
                 <div class="h flex">
                   <p class="h_l">
                     <em class="name">{{ post.author }}</em
-                    ><em class="time">{{ indexStore.formatPostTime(post.time) }}</em>
+                    ><em class="time">{{
+                      indexStore.formatPostTime(post.time)
+                    }}</em>
                   </p>
                   <div class="h_r">
                     <button
@@ -194,9 +166,21 @@
                     class="num_love flex"
                     :class="{ 'is-liked': isPostLiked(post.id) }"
                     type="button"
-                    :aria-label="post.id < 0 ? '本地帖子不可点赞' : !indexStore.sessionUserId ? '登录后可点赞' : isPostLiked(post.id) ? '取消点赞' : '点赞'"
+                    :aria-label="
+                      post.id < 0
+                        ? '本地帖子不可点赞'
+                        : !indexStore.sessionUserId
+                          ? '登录后可点赞'
+                          : isPostLiked(post.id)
+                            ? '取消点赞'
+                            : '点赞'
+                    "
                     :aria-pressed="isPostLiked(post.id)"
-                    :disabled="post.id < 0 || !indexStore.sessionUserId || like_pending_ids.has(post.id)"
+                    :disabled="
+                      post.id < 0 ||
+                      !indexStore.sessionUserId ||
+                      like_pending_ids.has(post.id)
+                    "
                     @click.stop="handlePostLike(post)"
                   >
                     <Transition name="like-icon" mode="out-in">
@@ -232,7 +216,7 @@
                       </span>
                     </span>
                   </button>
-                  <em class="num_reply flex"
+                  <em class="num_reply flex" @click="navigate_detail_post(post)"
                     ><i class="yumao icon-a-042_xiaoxi"></i
                     ><i>{{ post.replies }}</i></em
                   >
@@ -241,6 +225,7 @@
             </div>
           </div>
         </div>
+
         <div
           class="item_bottom"
           :class="{ 'is-visible': bottom_loading }"
@@ -367,7 +352,7 @@
             </button>
           </header>
           <div class="send-article-body flex">
-            <img :src="qq_img" alt="用户头像" />
+            <NuxtImg :src="qq_img" alt="用户头像" quality="10" />
             <div class="send-editor">
               <strong>Hualuo</strong>
               <div
@@ -391,7 +376,12 @@
                   v-for="(image, index) in send_article_images"
                   :key="image.url"
                 >
-                  <img :src="image.url" :alt="image.name" />
+                  <NuxtImg
+                    :src="image.url"
+                    quality="20"
+                    format="webp"
+                    :alt="image.name"
+                  />
                   <button
                     class="flex"
                     type="button"
@@ -527,27 +517,9 @@
 
 <script setup lang="ts">
   import { useIndexStore } from "~/stores/index";
+  import type { BlogPost, PostItem } from "~/types/blog";
 
-  type PostItem = {
-    id: number;
-    author: string;
-    avatar: string;
-    time: number;
-    content: string;
-    img_list?: string[];
-    likes: number;
-    replies: number;
-  };
-
-  type StoredPost = {
-    id: number;
-    user_id: number;
-    text: string;
-    img_list: string[];
-    time: number;
-    likeCount: number;
-    liked: boolean;
-  };
+  definePageMeta({ keepalive: true });
 
   type PreviewOrientation = "portrait" | "landscape" | "square";
 
@@ -606,6 +578,22 @@
   let bottomReached = false;
   let postImageObserver: IntersectionObserver | undefined;
 
+  const saveHomeScroll = () => {
+    indexStore.homeScrollTop = post_scroll.value?.scrollTop ?? 0;
+  };
+  const restoreHomeScroll = async () => {
+    await nextTick();
+    window.requestAnimationFrame(() => {
+      if (post_scroll.value) post_scroll.value.scrollTop = indexStore.homeScrollTop;
+    });
+  };
+
+  onBeforeRouteLeave(saveHomeScroll);
+  onActivated(restoreHomeScroll);
+
+  const navigate_detail_post = (post: PostItem) =>
+    navigateTo(`/@${post.username}/post/${post.uuid}`);
+
   const isRemoteImage = (image: string) => /^https?:\/\//i.test(image);
   const getPostImageSrc = (image: string) =>
     isRemoteImage(image) ? image : `/images/${image}`;
@@ -620,7 +608,12 @@
   };
 
   const handlePostLike = async (post: PostItem) => {
-    if (post.id < 0 || !indexStore.sessionUserId || like_pending_ids.has(post.id)) return;
+    if (
+      post.id < 0 ||
+      !indexStore.sessionUserId ||
+      like_pending_ids.has(post.id)
+    )
+      return;
     like_pending_ids.add(post.id);
 
     const wasLiked = isPostLiked(post.id);
@@ -814,18 +807,16 @@
     send_article_pending.value = true;
     send_article_error.value = "";
     try {
-      const { post } = await $fetch<{
-        post: {
-          id: number;
-          text: string;
-          img_list: string[];
-          time: number;
-        };
-      }>("/api/blog/post", { method: "POST", body });
+      const { post } = await $fetch<{ post: BlogPost }>("/api/blog/post", {
+        method: "POST",
+        body,
+      });
       const postId = post.id;
       post_items.value.unshift({
         id: postId,
-        author: "Hualuo",
+        author: post.username,
+        username: post.username,
+        uuid: post.uuid,
         avatar: qq_img,
         time: post.time,
         content: post.text,
@@ -941,21 +932,25 @@
   onMounted(async () => {
     void indexStore.refreshSession();
     try {
-      const { posts } = await $fetch<{ posts: StoredPost[] }>("/api/blog/post");
+      const { posts } = await $fetch<{ posts: BlogPost[] }>("/api/blog/post");
       post_items.value = [
         ...posts.map((post) => ({
           id: post.id,
-          author: "Hualuo",
+          author: post.username,
+          username: post.username,
           avatar: qq_img,
           time: post.time,
           content: post.text,
           img_list: post.img_list,
           likes: post.likeCount,
-          replies: 0,
+          replies: post.commentCount,
+          uuid: post.uuid,
         })),
         ...post_items.value,
       ];
-      liked_post_ids.value = new Set(posts.filter((post) => post.liked).map((post) => post.id));
+      liked_post_ids.value = new Set(
+        posts.filter((post) => post.liked).map((post) => post.id),
+      );
       posts_loading.value = false;
     } catch (error) {
       console.error("加载帖子失败", error);
@@ -974,6 +969,7 @@
     syncHomeAvatarLoadState();
     const root = post_scroll.value;
     if (!root) return;
+    root.scrollTop = indexStore.homeScrollTop;
 
     postImageObserver = new IntersectionObserver(
       (entries) => {

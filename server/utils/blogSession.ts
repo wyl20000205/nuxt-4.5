@@ -14,7 +14,7 @@ export async function getBlogUser(event: H3Event) {
     return null;
   }
 
-  return { id: user.id };
+  return { id: user.id, username: user.username };
 }
 
 export async function requireBlogUser(event: H3Event) {

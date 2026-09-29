@@ -80,17 +80,9 @@
 <script setup lang="ts">
   import { useUserStore } from "~/stores/user"
   import { useIndexStore } from "~/stores/index"
+  import type { ManagedPost } from "~/types/blog"
 
   definePageMeta({ middleware: "auth" })
-
-  type ManagedPost = {
-    id: number
-    userId: number
-    text: string
-    images: string[]
-    imageCount: number
-    time: number
-  }
 
   type ManageData = {
     userId: number

@@ -6,7 +6,7 @@
 import { defineNuxtConfig } from "nuxt/config";
 
 export const database = {
-  
+  url: "postgresql://root:Mm123456789%40@8.219.63.91:5432/blog",
 };
 
 export default defineNuxtConfig({

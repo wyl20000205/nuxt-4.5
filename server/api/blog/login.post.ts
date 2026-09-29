@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
   const user = await userSql.findFirst({ password: passwordHash });
 
   if (!user || !verifyBlogPasswordHash(passwordHash, user.password)) {
-    throw createError({ statusCode: 401, message: "密钥错误" });
+    throw createError({ statusCode: 401, message: "密钥错误或者账户被停用" });
   }
 
   setCookie(event, "blog_session", createBlogSession(user.id, user.password), {

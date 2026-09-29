@@ -79,7 +79,8 @@
 </template>
 
 <script setup lang="ts">
-  type EditablePost = { id: number; text: string; images: string[]; userId?: number };
+  import type { EditablePost } from "~/types/blog";
+
   const props = defineProps<{ post: EditablePost | null }>();
   const emit = defineEmits<{
     close: [];

@@ -1,12 +1,15 @@
 import { db } from "../db";
+import { random5 } from "../tool";
 
 type UserRow = {
   id: number;
   password: string;
+  username: string;
 };
 
 type CreatedPostRow = {
   id: number;
+  uuid: string;
   createdAt: Date;
 };  
 
@@ -15,7 +18,7 @@ export const userSql = {
   async findFirst(where: { password: string }) {
     try {
       const result = await db().query<UserRow>(
-        "SELECT id, password FROM t_user WHERE password = $1 AND active = 1 LIMIT 1",
+        "SELECT id, password, username FROM t_user WHERE password = $1 AND active = 1 LIMIT 1",
         [where.password],
       );
 
@@ -28,7 +31,7 @@ export const userSql = {
   // 根据唯一 id 查询用户。
   async findUnique(where: { id: number }) {
     const result = await db().query<UserRow>(
-      "SELECT id, password FROM t_user WHERE id = $1 AND active = 1 LIMIT 1",
+      "SELECT id, password, username FROM t_user WHERE id = $1 AND active = 1 LIMIT 1",
       [where.id],
     );
 
@@ -119,11 +122,19 @@ export const userSql = {
         return "frequent";
       }
 
+      let uuid = random5();
+      while (
+        (await client.query("SELECT 1 FROM t_post WHERE uuid = $1", [uuid]))
+          .rowCount
+      ) {
+        uuid = random5();
+      }
+
       const result = await client.query<CreatedPostRow>(
-        `INSERT INTO t_post (user_id, text, img)
-         VALUES ($1, $2, $3::jsonb)
-         RETURNING id, time AS "createdAt"`,
-        [data.userId, data.text, JSON.stringify(data.images)],
+        `INSERT INTO t_post (user_id, text, img, uuid)
+         VALUES ($1, $2, $3::jsonb, $4)
+         RETURNING id, uuid, time AS "createdAt"`,
+        [data.userId, data.text, JSON.stringify(data.images), uuid],
       );
       await client.query("COMMIT");
       return result.rows[0]!;

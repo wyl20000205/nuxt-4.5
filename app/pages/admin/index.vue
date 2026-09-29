@@ -145,19 +145,9 @@
 <script setup lang="ts">
   import { storeAdmin } from "~/stores/admin";
   import { useIndexStore } from "~/stores/index";
+  import type { AdminManagedPost as ManagedPost } from "~/types/blog";
 
   definePageMeta({ middleware: "auth" });
-
-  type ManagedPost = {
-    id: number;
-    userId: number;
-    text: string;
-    images: string[];
-    imageCount: number;
-    time: number;
-    active: boolean;
-    authorActive: boolean;
-  };
 
   type ManagedUser = {
     id: number;

@@ -45,7 +45,8 @@
 </template>
 
 <script setup lang="ts">
-  type EditablePost = { id: number; text: string; images: string[] }
+  import type { EditablePost } from "~/types/blog"
+
   const props = defineProps<{ post: EditablePost | null }>()
   const emit = defineEmits<{ close: []; saved: [post: EditablePost] }>()
   const dialog = ref<HTMLElement | null>(null)

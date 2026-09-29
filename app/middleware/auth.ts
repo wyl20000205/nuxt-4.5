@@ -1,8 +1,8 @@
 import { useIndexStore } from "~/stores/index";
 
 type Session = {
-  userId: number;
-  role: "admin" | "user";
+  userId: number | null;
+  role: "admin" | "user" | null;
 };
 
 export default defineNuxtRouteMiddleware(async (to) => {
@@ -10,6 +10,8 @@ export default defineNuxtRouteMiddleware(async (to) => {
   try {
     const session = await useRequestFetch()<Session>("/api/blog/session");
     indexStore.setSession(session.userId);
+
+    if (!session.userId) return navigateTo("/");
 
     if (to.path.startsWith("/admin") && session.userId !== 1) {
       return navigateTo("/user");
